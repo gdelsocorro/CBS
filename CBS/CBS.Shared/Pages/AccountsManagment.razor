@@ -72,20 +72,6 @@
         Save Church Info
     </MudButton>
 
-    <!-- Data Management -->
-    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Data Management</MudText>
-    <MudDivider Class="mb-4" />
-    <MudStack Row="true" Spacing="2">
-        <MudButton Variant="Variant.Outlined" Color="Color.Info"
-                   StartIcon="@Icons.Material.Filled.Download" OnClick="ExportData">
-            Export All Data
-        </MudButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Info"
-                   StartIcon="@Icons.Material.Filled.Upload" OnClick="ImportData">
-            Import Data
-        </MudButton>
-    </MudStack>
-
     <!-- Danger Zone -->
     <MudText Typo="Typo.h6" Class="mt-6 mb-2" Style="color:#d32f2f;">Danger Zone</MudText>
     <MudDivider Class="mb-4" />
@@ -154,16 +140,6 @@
             return;
         }
         NotifService.Push("Church Info Saved", "Church information has been updated.", AppNotificationSeverity.Success);
-    }
-
-    private void ExportData()
-    {
-        NotifService.Push("Export Started", "Preparing data export — this may take a moment.", AppNotificationSeverity.Info);
-    }
-
-    private void ImportData()
-    {
-        NotifService.Push("Import", "Import functionality coming soon.", AppNotificationSeverity.Info);
     }
 
     private void SignOut()

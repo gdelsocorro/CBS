@@ -1,0 +1,114 @@
+@inject CBS.Shared.Services.ContributionStateService ContributionService
+@inject CBS.Shared.Services.MemberStateService MemberService
+@inject IJSRuntime JS
+
+<MudDialog Style="width:680px; max-width:100%;">
+    <DialogContent>
+        <div style="height:60vh; display:flex; flex-direction:column; gap:10px;">
+
+            <!-- Member header -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink:0;">
+                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@MemberName</MudText>
+                <MudSpacer />
+                <!-- Year filter -->
+                <MudSelect T="int?" Value="_year" ValueChanged="y => _year = y"
+                           Placeholder="All Years" Dense="true" Margin="Margin.Dense"
+                           Style="min-width:120px;" Clearable="true">
+                    @foreach (var y in _availableYears)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)y)">@y</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+
+            <!-- Summary row -->
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" Style="flex-shrink:0;">
+                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Savings">
+                    Total &nbsp;<strong>₱@_filtered.Sum(c => c.Amount).ToString("N2")</strong>
+                </MudChip>
+                @foreach (var g in _filtered.GroupBy(c => c.ContributionType))
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small">
+                        @g.Key.GetDisplayName(): ₱@g.Sum(c => c.Amount).ToString("N2")
+                    </MudChip>
+                }
+            </MudStack>
+
+            <!-- Table -->
+            <div style="overflow-y:auto; flex:1;">
+                <MudTable Items="_sorted" Hover="true" Bordered="true" Striped="true"
+                          RowsPerPage="25" Style="min-width:100%;" Dense="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Type</MudTh>
+                        <MudTh Style="text-align:right;">Amount</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Id</MudTd>
+                        <MudTd>@context.ContributionDate.ToShortDateString()</MudTd>
+                        <MudTd>@context.ContributionType.GetDisplayName()</MudTd>
+                        <MudTd Style="text-align:right; font-weight:500;">₱@context.Amount.ToString("N2")</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Typo="Typo.body2" Class="pa-4" Style="color:#90A4AE; text-align:center;">
+                            No contributions found.
+                        </MudText>
+                    </NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Error" Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   OnClick="ExportPdf">Export PDF</MudButton>
+        <MudSpacer />
+        <MudButton Color="Color.Secondary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int    MemberId   { get; set; }
+    [Parameter] public string MemberName { get; set; } = string.Empty;
+
+    private int? _year;
+
+    private IEnumerable<CBS.Domain.Models.Fund> _all =>
+        ContributionService.Contributions
+            .Where(c => c.MemberId == MemberId)
+            .OrderByDescending(c => c.ContributionDate);
+
+    private IEnumerable<CBS.Domain.Models.Fund> _filtered =>
+        _year is null ? _all : _all.Where(c => c.ContributionDate.Year == _year);
+
+    private IEnumerable<CBS.Domain.Models.Fund> _sorted => _filtered;
+
+    private IEnumerable<int> _availableYears =>
+        ContributionService.Contributions
+            .Where(c => c.MemberId == MemberId)
+            .Select(c => c.ContributionDate.Year)
+            .Distinct()
+            .OrderByDescending(y => y);
+
+    private async Task ExportPdf()
+    {
+        var member = MemberService.Members.FirstOrDefault(m => m.Id == MemberId);
+        if (member is null) return;
+        var bytes = CBS.Shared.Services.PdfExportService.BuildMemberReceipt(member, _filtered, _year);
+        var b64 = Convert.ToBase64String(bytes);
+        var suffix = _year.HasValue ? $"_{_year}" : "_all";
+        await JS.InvokeVoidAsync("cbsDownloadBytes",
+            $"contributions_{member.FullName.Replace(" ", "_")}{suffix}.pdf",
+            "application/pdf", b64);
+    }
+
+    void Close() => MudDialog.Cancel();
+}

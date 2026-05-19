@@ -16,22 +16,33 @@ public class VendorStateService
         _vendors = db.Vendors.OrderBy(v => v.Id).ToList();
     }
 
-    public IReadOnlyList<Vendor> Vendors => _vendors;
+    public IReadOnlyList<Vendor> Vendors     => _vendors.Where(v => v.IsActive).ToList();
+    public IReadOnlyList<Vendor> AllVendors  => _vendors;
 
     public void Add(Vendor vendor)
     {
         vendor.Id = 0;
+        vendor.IsActive = true;
         using var db = _factory.CreateDbContext();
         db.Vendors.Add(vendor);
         db.SaveChanges();
         _vendors.Add(vendor);
     }
 
-    public void Remove(Vendor vendor)
+    public void Deactivate(Vendor vendor)
     {
+        vendor.IsActive = false;
         using var db = _factory.CreateDbContext();
-        db.Vendors.Where(v => v.Id == vendor.Id).ExecuteDelete();
-        _vendors.Remove(vendor);
+        db.Vendors.Update(vendor);
+        db.SaveChanges();
+    }
+
+    public void Restore(Vendor vendor)
+    {
+        vendor.IsActive = true;
+        using var db = _factory.CreateDbContext();
+        db.Vendors.Update(vendor);
+        db.SaveChanges();
     }
 
     public void Update(Vendor vendor)

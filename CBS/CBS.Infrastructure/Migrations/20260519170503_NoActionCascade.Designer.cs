@@ -4,6 +4,7 @@ using CBS.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CBS.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260519170503_NoActionCascade")]
+    partial class NoActionCascade
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -75,20 +78,8 @@ namespace CBS.Infrastructure.Migrations
                     b.Property<int>("ExpenseType")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsRecurring")
-                        .HasColumnType("bit");
-
                     b.Property<string>("ReceiptImage")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("RecurrenceEndsOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("RecurrenceSourceId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RecurrenceType")
-                        .HasColumnType("int");
 
                     b.Property<int>("VendorId")
                         .HasColumnType("int");
@@ -156,10 +147,6 @@ namespace CBS.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Suffix")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.ToTable("Members");
@@ -179,9 +166,6 @@ namespace CBS.Infrastructure.Migrations
 
                     b.Property<DateTime?>("DateAdded")
                         .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()

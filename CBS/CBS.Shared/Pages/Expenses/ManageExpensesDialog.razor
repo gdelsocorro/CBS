@@ -61,7 +61,22 @@
                         <MudTd>@context.Id</MudTd>
                         <MudTd>@context.ExpenseDate.ToShortDateString()</MudTd>
                         <MudTd>@VendorService.GetName(context.VendorId)</MudTd>
-                        <MudTd>@context.Description</MudTd>
+                        <MudTd>
+                            @context.Description
+                            @if (context.IsRecurring)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                                         Style="font-size:10px; height:18px; margin-left:4px;">
+                                    @(context.RecurrenceType == CBS.Domain.Enums.RecurrenceType.Weekly ? "Weekly" : "Monthly")
+                                </MudChip>
+                            }
+                            else if (context.RecurrenceSourceId.HasValue)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Icon="@Icons.Material.Filled.Sync"
+                                         Style="font-size:10px; height:18px; margin-left:4px;">Auto</MudChip>
+                            }
+                        </MudTd>
                         <MudTd>@context.ExpenseType.GetDisplayName()</MudTd>
                         <MudTd>@context.Amount.ToString("C")</MudTd>
                         <MudTd>
@@ -69,7 +84,7 @@
                                        OnClick="@(() => OpenEditExpenseDialog(context))">Edit</MudButton>
                             <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
                                            Color="@(string.IsNullOrEmpty(context.ReceiptImage) ? Color.Default : Color.Success)"
-                                           Title="View Receipt"
+                                           Tooltip="View Receipt"
                                            OnClick="@(() => OpenViewReceiptDialog(context))" />
                             <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
                                        OnClick="@(() => ExpenseService.Remove(context))">Delete</MudButton>
@@ -122,7 +137,7 @@
         var parameters = new DialogParameters { ["Expense"] = expense };
         var dialog = await DialogService.ShowAsync<EditExpenseDialog>("Edit Expense", parameters);
         var result = await dialog.Result;
-        if (!result.Canceled) ExpenseService.Update(expense);
+        if (result is { Canceled: false }) ExpenseService.Update(expense);
     }
 
     private async Task OpenViewReceiptDialog(CBS.Domain.Models.Expense expense)

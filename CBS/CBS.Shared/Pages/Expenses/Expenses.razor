@@ -82,13 +82,28 @@
             <MudTd DataLabel="ID">@context.Id</MudTd>
             <MudTd DataLabel="Date">@context.ExpenseDate.ToShortDateString()</MudTd>
             <MudTd DataLabel="Vendor">@VendorService.GetName(context.VendorId)</MudTd>
-            <MudTd DataLabel="Description">@context.Description</MudTd>
+            <MudTd DataLabel="Description">
+                @context.Description
+                @if (context.IsRecurring)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info"
+                             Style="font-size:10px; height:18px; margin-left:4px;">
+                        @(context.RecurrenceType == CBS.Domain.Enums.RecurrenceType.Weekly ? "Weekly" : "Monthly")
+                    </MudChip>
+                }
+                else if (context.RecurrenceSourceId.HasValue)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Icon="@Icons.Material.Filled.Sync"
+                             Style="font-size:10px; height:18px; margin-left:4px;">Auto</MudChip>
+                }
+            </MudTd>
             <MudTd DataLabel="Type">@context.ExpenseType.GetDisplayName()</MudTd>
             <MudTd DataLabel="Amount">@context.Amount.ToString("C")</MudTd>
             <MudTd>
                 <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
                                Color="@(string.IsNullOrEmpty(context.ReceiptImage) ? Color.Default : Color.Success)"
-                               Title="View Receipt"
+                               Tooltip="View Receipt"
                                OnClick="@(() => OpenViewReceiptDialog(context))" />
             </MudTd>
         </RowTemplate>
@@ -98,7 +113,23 @@
     </MudTable>
 
     <!-- Export & Upload -->
-    <MudStack Row="true" Class="mt-4" Justify="Justify.FlexEnd" Spacing="2">
+    <MudStack Row="true" Class="mt-4" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="2" Wrap="Wrap.Wrap">
+        <!-- Monthly PDF report pickers -->
+        <MudSelect T="int" @bind-Value="_pdfYear" Dense="true" Margin="Margin.Dense" Style="min-width:90px;">
+            @foreach (var y in _availableYears)
+            {
+                <MudSelectItem Value="@y">@y</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="int" @bind-Value="_pdfMonth" Dense="true" Margin="Margin.Dense" Style="min-width:110px;">
+            @foreach (var m in Enumerable.Range(1, 12))
+            {
+                <MudSelectItem Value="@m">@(new DateTime(2000, m, 1).ToString("MMMM"))</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf" OnClick="ExportMonthlyPdf">Monthly PDF</MudButton>
+        <MudDivider Vertical="true" FlexItem="true" />
         <MudButton Variant="Variant.Outlined" Color="Color.Info"
                    StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">Export CSV</MudButton>
         <InputFile id="expenseCsvUpload" OnChange="ImportCsv" accept=".csv" style="display:none;" />
@@ -112,6 +143,13 @@
     private string _searchString = string.Empty;
     private bool _focused;
     private string _selectedFilter = "All";
+
+    private int _pdfYear  = DateTime.Today.Year;
+    private int _pdfMonth = DateTime.Today.Month;
+
+    private IEnumerable<int> _availableYears =>
+        ExpenseService.Expenses.Select(e => e.ExpenseDate.Year).Distinct().OrderByDescending(y => y)
+            .DefaultIfEmpty(DateTime.Today.Year);
 
     private string _sortBy   = "id";
     private bool   _sortDesc = true;
@@ -139,6 +177,18 @@
         _                 => src.OrderBy(e => e.Id),
     };
 
+    private async Task ExportMonthlyPdf()
+    {
+        var bytes = PdfExportService.BuildMonthlyExpenseReport(
+            _pdfYear, _pdfMonth,
+            ExpenseService.Expenses,
+            VendorService.GetName);
+        var b64 = Convert.ToBase64String(bytes);
+        var monthName = new DateTime(_pdfYear, _pdfMonth, 1).ToString("MMM-yyyy");
+        await JS.InvokeVoidAsync("cbsDownloadBytes",
+            $"expenses_{monthName}.pdf", "application/pdf", b64);
+    }
+
     private async Task ExportCsv()
     {
         var csv = CsvHelper.Build(
@@ -163,7 +213,7 @@
         int added = 0, skipped = 0;
         foreach (var row in rows)
         {
-            if (!row.TryGetValue("VendorName", out var vendorName) || string.IsNullOrWhiteSpace(vendorName)) { skipped++; continue; }
+            if (!row.TryGetValue("Vendor", out var vendorName) || string.IsNullOrWhiteSpace(vendorName)) { skipped++; continue; }
             if (!row.TryGetValue("Amount",     out var amtStr)  || !decimal.TryParse(amtStr,  out var amount))  { skipped++; continue; }
             row.TryGetValue("Date",        out var dateStr);
             row.TryGetValue("Description", out var desc);

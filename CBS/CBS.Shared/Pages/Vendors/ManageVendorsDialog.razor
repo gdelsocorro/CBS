@@ -57,15 +57,23 @@
                         <MudTh>Actions</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd>@context.Id</MudTd>
-                        <MudTd>@context.Name</MudTd>
-                        <MudTd>@context.DateAdded?.ToShortDateString()</MudTd>
-                        <MudTd>@context.Address</MudTd>
+                        <MudTd Style="@(!context.IsActive ? "opacity:0.5;" : "")">@context.Id</MudTd>
+                        <MudTd Style="@(!context.IsActive ? "opacity:0.5; text-decoration:line-through;" : "")">@context.Name</MudTd>
+                        <MudTd Style="@(!context.IsActive ? "opacity:0.5;" : "")">@context.DateAdded?.ToShortDateString()</MudTd>
+                        <MudTd Style="@(!context.IsActive ? "opacity:0.5;" : "")">@context.Address</MudTd>
                         <MudTd>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
-                                       OnClick="@(() => OpenEditVendorDialog(context))">Edit</MudButton>
-                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
-                                       OnClick="@(() => VendorService.Remove(context))">Delete</MudButton>
+                            @if (context.IsActive)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                           OnClick="@(() => OpenEditVendorDialog(context))">Edit</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                           OnClick="@(() => VendorService.Deactivate(context))">Delete</MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small"
+                                           OnClick="@(() => VendorService.Restore(context))">Restore</MudButton>
+                            }
                         </MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -90,7 +98,7 @@
     private bool   _sortDesc = true;
 
     private IEnumerable<CBS.Domain.Models.Vendor> _filteredVendors =>
-        VendorService.Vendors.Where(v =>
+        VendorService.AllVendors.Where(v =>
             string.IsNullOrWhiteSpace(_searchString)
             || v.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
             || (!string.IsNullOrEmpty(v.Address) && v.Address.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
@@ -111,7 +119,7 @@
         var parameters = new DialogParameters { ["Vendor"] = vendor };
         var dialog = await DialogService.ShowAsync<EditVendorDialog>("Edit Vendor", parameters);
         var result = await dialog.Result;
-        if (!result.Canceled) VendorService.Update(vendor);
+        if (result is { Canceled: false }) VendorService.Update(vendor);
     }
 
     void Close() => MudDialog.Cancel();

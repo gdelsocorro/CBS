@@ -5,6 +5,7 @@
 @using CBS.Shared.Services
 @using Microsoft.AspNetCore.Components.Forms
 @inject MemberStateService MemberService
+@inject ContributionStateService ContributionService
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 
@@ -26,7 +27,7 @@
             <div class="psd-list">
                 @foreach (var m in _filteredMembers.Take(8))
                 {
-                    var label = $"{m.FirstName} {m.LastName}";
+                    var label = m.FullName;
                     <div class="psd-item" @onmousedown="@(() => _searchString = label)">
                         <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
                         <span>@label</span>
@@ -78,12 +79,14 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="ID">@context.Id</MudTd>
-            <MudTd DataLabel="Full Name">@context.FirstName @context.LastName</MudTd>
+            <MudTd DataLabel="Full Name">@context.FullName</MudTd>
             <MudTd DataLabel="Area">@context.Area</MudTd>
             <MudTd DataLabel="Email">@context.Email</MudTd>
             <MudTd>
                 <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
                            OnClick="@(() => OpenEditMemberDialog(context))">Edit</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Info" Size="Size.Small"
+                           OnClick="@(() => OpenContributionsDialog(context))">Contributions</MudButton>
             </MudTd>
         </RowTemplate>
         <PagerContent>
@@ -115,8 +118,7 @@
             m.IsActive &&
             (string.IsNullOrWhiteSpace(_searchString)
                 || m.Id.ToString().Contains(_searchString)
-                || m.FirstName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
-                || m.LastName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) &&
+                || m.FullName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) &&
             (_areaFilter == "All" || m.Area.ToString() == _areaFilter)));
 
     private IEnumerable<Member> SortMembers(IEnumerable<Member> src) => (_sortBy, _sortDesc) switch
@@ -132,11 +134,11 @@
     private async Task ExportCsv()
     {
         var csv = CsvHelper.Build(
-            new[] { "Id", "FirstName", "LastName", "Email", "Area" },
+            new[] { "Id", "FirstName", "LastName", "Suffix", "Email", "Area" },
             _filteredMembers.Select(m => new[]
             {
                 m.Id.ToString(), m.FirstName, m.LastName,
-                m.Email, m.Area.ToString()
+                m.Suffix, m.Email, m.Area.ToString()
             }));
         await JS.InvokeVoidAsync("cbsDownloadCsv", $"members_{DateTime.Today:yyyyMMdd}.csv", csv);
     }
@@ -151,6 +153,7 @@
         {
             if (!row.TryGetValue("FirstName", out var fn) || string.IsNullOrWhiteSpace(fn)) continue;
             row.TryGetValue("LastName", out var ln);
+            row.TryGetValue("Suffix",   out var sfx);
             row.TryGetValue("Email",    out var email);
             row.TryGetValue("Area",     out var areaStr);
             var area = Enum.TryParse<Areas>(areaStr, true, out var a) ? a : Areas.Downtown;
@@ -158,6 +161,7 @@
             {
                 FirstName = fn.Trim(),
                 LastName  = ln?.Trim() ?? "",
+                Suffix    = sfx?.Trim() ?? "",
                 Email     = email?.Trim() ?? "",
                 Area      = area,
                 IsActive  = true
@@ -174,7 +178,7 @@
     {
         var dialog = await DialogService.ShowAsync<AddMemberDialog>("Add Member", _addOpts);
         var result = await dialog.Result;
-        if (!result.Canceled && result.Data is Member member)
+        if (result is { Canceled: false, Data: Member member })
             MemberService.Add(member);
     }
 
@@ -183,11 +187,23 @@
         await DialogService.ShowAsync<ManageMembersDialog>("Manage Members", _mngOpts);
     }
 
+    private Task OpenContributionsDialog(Member member)
+    {
+        var count = ContributionService.Contributions.Count(c => c.MemberId == member.Id);
+        var parameters = new DialogParameters
+        {
+            ["MemberId"]   = member.Id,
+            ["MemberName"] = member.FullName
+        };
+        return DialogService.ShowAsync<ViewMemberContributionsDialog>(
+            $"Contributions ({count})", parameters);
+    }
+
     private async Task OpenEditMemberDialog(Member member)
     {
         var parameters = new DialogParameters { ["Member"] = member };
         var dialog = await DialogService.ShowAsync<EditMemberDialog>("Edit Member", parameters);
         var result = await dialog.Result;
-        if (!result.Canceled) MemberService.Update(member);
+        if (result is { Canceled: false }) MemberService.Update(member);
     }
 }

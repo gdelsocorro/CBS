@@ -18,6 +18,8 @@ namespace CBS.Domain.Models
 
         public DateTime? DateAdded { get; set; }
 
+        public bool IsActive { get; set; } = true;
+
         public virtual ICollection<Expense>? Expenses { get; set; }
     }
 }

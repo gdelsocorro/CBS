@@ -89,7 +89,7 @@
                 <MudTd>
                     <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
                                    Color="@(string.IsNullOrEmpty(context.ReceiptImage) ? Color.Default : Color.Success)"
-                                   Title="View Receipt"
+                                   Tooltip="View Receipt"
                                    OnClick="@(() => ViewReceipt(context))" />
                     <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                    Color="Color.Error"
@@ -132,7 +132,7 @@
         var parameters = new DialogParameters { ["PrefilledVendorId"] = VendorId };
         var dialog = await DialogService.ShowAsync<AddExpenseDialog>("Add Expense", parameters);
         var result = await dialog.Result;
-        if (!result.Canceled && result.Data is Expense expense)
+        if (result is { Canceled: false, Data: Expense expense })
         {
             ExpenseService.Add(expense);
         }

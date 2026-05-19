@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <defs>
+    <linearGradient id="cbs-bg" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="cbs-shine" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="80" height="80" rx="18" fill="url(#cbs-bg)"/>
+  <!-- Top-half shine overlay -->
+  <rect width="80" height="48" rx="18" fill="url(#cbs-shine)"/>
+
+  <!-- Cross — vertical bar -->
+  <rect x="36" y="9" width="8" height="38" rx="3" fill="white"/>
+  <!-- Cross — horizontal bar -->
+  <rect x="15" y="23" width="50" height="8" rx="3" fill="white"/>
+
+  <!-- Rising bar chart -->
+  <rect x="16" y="63" width="7" height="9"  rx="2" fill="rgba(255,255,255,0.38)"/>
+  <rect x="27" y="57" width="7" height="15" rx="2" fill="rgba(255,255,255,0.58)"/>
+  <rect x="38" y="51" width="7" height="21" rx="2" fill="rgba(255,255,255,0.90)"/>
+  <rect x="49" y="57" width="7" height="15" rx="2" fill="rgba(255,255,255,0.58)"/>
+
+  <!-- Highlight dot on tallest bar -->
+  <circle cx="41.5" cy="49" r="2.2" fill="white"/>
+</svg>

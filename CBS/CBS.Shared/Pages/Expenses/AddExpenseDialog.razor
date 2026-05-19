@@ -106,6 +106,32 @@
                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Payments" />
             </MudItem>
 
+            <!-- Recurring -->
+            <MudItem xs="12">
+                <MudDivider Class="mb-2" />
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Repeat" Size="Size.Small" Style="color:var(--mud-palette-text-secondary);" />
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Recurring Expense</MudText>
+                    <MudSwitch @bind-Value="_vm.IsRecurring" Color="Color.Primary" T="bool" />
+                </MudStack>
+                @if (_vm.IsRecurring)
+                {
+                    <MudGrid Spacing="2" Class="mt-1">
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="CBS.Domain.Enums.RecurrenceType" Label="Repeat every"
+                                       @bind-Value="_vm.RecurrenceType" Variant="Variant.Outlined" Dense="true">
+                                <MudSelectItem Value="@CBS.Domain.Enums.RecurrenceType.Weekly">Week</MudSelectItem>
+                                <MudSelectItem Value="@CBS.Domain.Enums.RecurrenceType.Monthly">Month</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker Label="Ends on (optional)" @bind-Date="_vm.RecurrenceEndsOn"
+                                           Variant="Variant.Outlined" Dense="true" Clearable="true" />
+                        </MudItem>
+                    </MudGrid>
+                }
+            </MudItem>
+
             <!-- Receipt -->
             <MudItem xs="12">
                 <MudDivider Class="mb-3" />
@@ -245,7 +271,9 @@
         }
 
         _vm.VendorId = _selectedVendor!.Id;
+        var wasRecurring = _vm.IsRecurring;
         ExpenseService.Add(_vm.ToNew());
+        if (wasRecurring) ExpenseService.GenerateRecurring();
 
         Snackbar.Add($"Added ₱{_vm.Amount:N2} expense — {_vm.Description}", Severity.Success);
 

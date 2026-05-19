@@ -28,6 +28,11 @@ namespace CBS.Domain.Models
 
         public string? ReceiptImage { get; set; }
 
+        public bool IsRecurring { get; set; }
+        public RecurrenceType RecurrenceType { get; set; }
+        public DateTime? RecurrenceEndsOn { get; set; }
+        public int? RecurrenceSourceId { get; set; }
+
         public virtual Vendor Vendor { get; set; } = default!;
     }
 }

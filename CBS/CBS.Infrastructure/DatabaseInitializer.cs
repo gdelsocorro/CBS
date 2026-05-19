@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace CBS.Infrastructure;
 
@@ -8,28 +6,28 @@ public static class DatabaseInitializer
 {
     public static void Initialize(AppDbContext db)
     {
-        var creator = db.Database.GetService<IRelationalDatabaseCreator>();
+        // For databases created before EF migrations were introduced:
+        // create the history table and stamp the baseline migration so Migrate()
+        // doesn't try to recreate tables that already exist.
+        if (db.Database.CanConnect())
+        {
+            var initial = db.Database.GetMigrations().FirstOrDefault();
+            if (initial is not null)
+            {
+                db.Database.ExecuteSqlRaw($@"
+                    IF OBJECT_ID('__EFMigrationsHistory') IS NULL
+                    BEGIN
+                        CREATE TABLE [__EFMigrationsHistory] (
+                            [MigrationId]    nvarchar(150) NOT NULL,
+                            [ProductVersion] nvarchar(32)  NOT NULL,
+                            CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+                        );
+                        IF OBJECT_ID('Members') IS NOT NULL
+                            INSERT INTO [__EFMigrationsHistory] VALUES ('{initial}', '10.0.3');
+                    END");
+            }
+        }
 
-        if (!creator.Exists())
-            creator.Create();
-
-        if (!creator.HasTables())
-            creator.CreateTables();
-
-        db.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Members' AND COLUMN_NAME = 'Email')
-            ALTER TABLE [Members] ADD [Email] nvarchar(max) NOT NULL DEFAULT '';");
-
-        db.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Admins')
-            CREATE TABLE [Admins] (
-                [Id]           int           NOT NULL IDENTITY,
-                [Username]     nvarchar(max) NOT NULL,
-                [FirstName]    nvarchar(max) NOT NULL,
-                [LastName]     nvarchar(max) NOT NULL,
-                [IsActive]     bit           NOT NULL,
-                [PasswordHash] nvarchar(max) NOT NULL,
-                CONSTRAINT [PK_Admins] PRIMARY KEY ([Id])
-            );");
+        db.Database.Migrate();
     }
 }

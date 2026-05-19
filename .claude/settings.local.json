@@ -16,7 +16,11 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Glenn Ray\\\\source\\\\repos\\\\CBS\\\\CBS\" -Directory)",
       "Bash(Select-Object Name)",
-      "Bash(dotnet ef *)"
+      "Bash(dotnet ef *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Glenn Ray\\\\source\\\\repos\\\\CBS\\\\CBS\" -Recurse -Filter \"wwwroot\" -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(dotnet add *)",
+      "Bash(Find \"C:\\\\Users\\\\Glenn Ray\\\\source\\\\repos\\\\CBS\\\\CBS\\\\CBS.Shared\" -name \"*.cs\" -path \"*ViewModels*\" -o -name \"*ViewModel.cs\")"
     ]
   }
 }

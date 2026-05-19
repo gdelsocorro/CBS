@@ -1,4 +1,31 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="456" height="456" fill="#512BD4" />
+<svg width="456" height="456" viewBox="0 0 456 456" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="456" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="white" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="456" height="456" rx="100" fill="url(#bg)"/>
+  <rect width="456" height="280" rx="100" fill="url(#shine)"/>
+
+  <!-- Cross — vertical bar -->
+  <rect x="205" y="52" width="46" height="216" rx="18" fill="white"/>
+  <!-- Cross — horizontal bar -->
+  <rect x="86" y="131" width="284" height="46" rx="18" fill="white"/>
+
+  <!-- Rising bar chart -->
+  <rect x="91"  y="358" width="40" height="52" rx="10" fill="rgba(255,255,255,0.38)"/>
+  <rect x="153" y="324" width="40" height="86" rx="10" fill="rgba(255,255,255,0.58)"/>
+  <rect x="215" y="290" width="46" height="120" rx="10" fill="rgba(255,255,255,0.90)"/>
+  <rect x="279" y="324" width="40" height="86" rx="10" fill="rgba(255,255,255,0.58)"/>
+
+  <!-- Highlight dot -->
+  <circle cx="238" cy="278" r="14" fill="white"/>
 </svg>

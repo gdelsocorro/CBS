@@ -1,37 +1,155 @@
-﻿@page "/"
+@page "/"
 @page "/login"
 @layout EmptyLayout
 @inject NavigationManager NavManager
 @inject CBS.Shared.Services.AdminStateService AdminService
 
-<PageTitle>Login</PageTitle>
+<PageTitle>CBS — Login</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="d-flex justify-center align-center" Style="height:100vh;">
-    <MudPaper Elevation="4" Class="pa-6" Style="width:400px;">
+<div class="cbs-bg">
+    <div class="cbs-glow cbs-glow-1"></div>
+    <div class="cbs-glow cbs-glow-2"></div>
 
-        <div class="d-flex justify-center mb-4">
-            <MudAvatar Size="Size.Large" Image="images/logo.png" />
-        </div>
+    <div class="cbs-card">
 
-        <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-4">Login</MudText>
+        <!-- Logo -->
+        <img src="_content/CBS.Shared/images/logo.svg" class="cbs-logo" alt="CBS Logo" />
 
-        <MudTextField @bind-Value="_username" Label="Username" Variant="Variant.Outlined"
-                      Immediate="true" Required="true" Class="mb-4"
+        <h1 class="cbs-brand">CBS</h1>
+        <p class="cbs-system">Church Budgeting System</p>
+        <p class="cbs-church">LAMI Church</p>
+
+        <div class="cbs-divider"></div>
+
+        <!-- Form -->
+        <MudTextField @bind-Value="_username"
+                      Label="Username"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Person"
+                      Immediate="true"
+                      Class="mb-3"
                       @onkeydown="OnKeyDown" />
-        <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined"
-                      InputType="InputType.Password" Immediate="true" Required="true" Class="mb-4"
+
+        <MudTextField @bind-Value="_password"
+                      Label="Password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Lock"
+                      Immediate="true"
+                      Class="mb-4"
                       @onkeydown="OnKeyDown" />
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="HandleLogin" FullWidth="true">
-            Login
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="HandleLogin" FullWidth="true" Size="Size.Large"
+                   Style="border-radius:8px; font-weight:600; letter-spacing:1px; padding:12px;">
+            Sign In
         </MudButton>
 
         @if (!string.IsNullOrEmpty(_message))
         {
-            <MudAlert Severity="@_severity" Class="mt-4">@_message</MudAlert>
+            <MudAlert Severity="@_severity" Class="mt-3" Dense="true">@_message</MudAlert>
         }
-    </MudPaper>
-</MudContainer>
+
+        <p class="cbs-footer">© @DateTime.Now.Year LAMI Church &nbsp;·&nbsp; CBS</p>
+    </div>
+</div>
+
+<style>
+    .cbs-bg {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(150deg, #0D1B4B 0%, #1A237E 40%, #1565C0 75%, #0288D1 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        overflow: hidden;
+    }
+
+    /* Soft radial glows for depth */
+    .cbs-glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        pointer-events: none;
+        opacity: 0.25;
+    }
+    .cbs-glow-1 {
+        width: 500px; height: 500px;
+        background: #5C6BC0;
+        top: -120px; left: -100px;
+    }
+    .cbs-glow-2 {
+        width: 400px; height: 400px;
+        background: #0288D1;
+        bottom: -100px; right: -80px;
+    }
+
+    .cbs-card {
+        position: relative;
+        z-index: 1;
+        background: white;
+        border-radius: 20px;
+        padding: 44px 40px 32px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.40), 0 4px 20px rgba(0,0,0,0.20);
+        text-align: center;
+        animation: cardIn 0.45s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    @@keyframes cardIn {
+        from { opacity: 0; transform: translateY(24px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)   scale(1);    }
+    }
+
+    .cbs-logo {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 14px;
+        display: block;
+        filter: drop-shadow(0 4px 12px rgba(21,101,192,0.35));
+    }
+
+    .cbs-brand {
+        font-family: 'Poppins', sans-serif;
+        font-size: 34px;
+        font-weight: 700;
+        color: #1A237E;
+        letter-spacing: 5px;
+        margin: 0 0 4px;
+        line-height: 1;
+    }
+
+    .cbs-system {
+        font-size: 12px;
+        font-weight: 500;
+        color: #546E7A;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin: 0 0 2px;
+    }
+
+    .cbs-church {
+        font-size: 12px;
+        color: #90A4AE;
+        margin: 0;
+    }
+
+    .cbs-divider {
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(0,0,0,0.10), transparent);
+        margin: 24px 0;
+    }
+
+    .cbs-footer {
+        margin-top: 24px;
+        font-size: 11px;
+        color: #B0BEC5;
+    }
+</style>
 
 @code {
     private string _username = string.Empty;

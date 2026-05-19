@@ -5,6 +5,7 @@
         <div @onkeydown="OnDialogKeyDown">
             <MudTextField Label="First Name" @bind-Value="_vm.FirstName" Required="true" />
             <MudTextField Label="Last Name" @bind-Value="_vm.LastName" />
+            <MudTextField Label="Suffix" @bind-Value="_vm.Suffix" Placeholder="Jr., Sr., II, III…" />
             <MudTextField Label="Email" @bind-Value="_vm.Email" InputType="InputType.Email" />
             <MudSelect T="CBS.Domain.Enums.Areas" Label="Area" @bind-Value="_vm.Area" Required="true">
                 @foreach (var area in Enum.GetValues<CBS.Domain.Enums.Areas>())

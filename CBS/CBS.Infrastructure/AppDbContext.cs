@@ -20,11 +20,13 @@ public class AppDbContext : DbContext
         builder.Entity<Expense>()
             .HasOne(e => e.Vendor)
             .WithMany(v => v.Expenses)
-            .HasForeignKey(e => e.VendorId);
+            .HasForeignKey(e => e.VendorId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.Entity<Fund>()
             .HasOne(f => f.Member)
             .WithMany(m => m.Contributions)
-            .HasForeignKey(f => f.MemberId);
+            .HasForeignKey(f => f.MemberId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }

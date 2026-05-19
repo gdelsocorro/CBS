@@ -25,7 +25,7 @@
                     {
                         <div class="psd-item" @onmousedown="@(() => SelectMember(m))">
                             <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
-                            <span>@m.FirstName @m.LastName</span>
+                            <span>@m.FullName</span>
                             <span class="psd-item-sub">@m.Area · @(m.IsActive ? "Active" : "Inactive")</span>
                         </div>
                     }
@@ -62,7 +62,7 @@
     {
         _vm = ContributionViewModel.From(Fund);
         _selectedMember = MemberService.Members.FirstOrDefault(m => m.Id == Fund.MemberId);
-        _memberSearch = _selectedMember is null ? string.Empty : $"{_selectedMember.FirstName} {_selectedMember.LastName}";
+        _memberSearch = _selectedMember?.FullName ?? string.Empty;
     }
 
     private void OnMemberKeyDown(KeyboardEventArgs e)
@@ -79,14 +79,14 @@
         _memberResults  = string.IsNullOrWhiteSpace(value)
             ? new()
             : MemberService.Members
-                .Where(m => $"{m.FirstName} {m.LastName}".Contains(value, StringComparison.OrdinalIgnoreCase))
+                .Where(m => m.FullName.Contains(value, StringComparison.OrdinalIgnoreCase))
                 .Take(8).ToList();
     }
 
     private void SelectMember(CBS.Domain.Models.Member m)
     {
         _selectedMember = m;
-        _memberSearch   = $"{m.FirstName} {m.LastName}";
+        _memberSearch   = m.FullName;
         _vm.MemberId    = m.Id;
         _memberResults.Clear();
         _memberFocused  = false;

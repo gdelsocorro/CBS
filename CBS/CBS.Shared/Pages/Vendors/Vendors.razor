@@ -43,7 +43,7 @@
             <MudSelectItem Value="@("date")">Date Added</MudSelectItem>
         </MudSelect>
         <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
-                       Size="Size.Small" Title="@(_sortDesc ? "Descending" : "Ascending")"
+                       Size="Size.Small" Tooltip="@(_sortDesc ? "Descending" : "Ascending")"
                        OnClick="@(() => _sortDesc = !_sortDesc)" />
     </MudStack>
 
@@ -125,7 +125,7 @@
     {
         var dialog = await DialogService.ShowAsync<AddVendorDialog>("Add Vendor", _addOpts);
         var result = await dialog.Result;
-        if (!result.Canceled && result.Data is Vendor newVendor)
+        if (result is { Canceled: false, Data: Vendor newVendor })
         {
             newVendor.DateAdded = DateTime.Today;
             VendorService.Add(newVendor);

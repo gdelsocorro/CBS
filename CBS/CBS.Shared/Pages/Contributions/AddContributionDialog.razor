@@ -41,7 +41,7 @@
                                 <div class="psd-item @(top ? "psd-item-top" : "")" @onmousedown="@(() => SelectMember(m))">
                                     <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
                                     <div style="flex:1; min-width:0;">
-                                        <div style="font-size:13px; font-weight:@(top ? "600" : "400");">@m.FirstName @m.LastName</div>
+                                        <div style="font-size:13px; font-weight:@(top ? "600" : "400");">@m.FullName</div>
                                         <div style="font-size:11px; color:#90A4AE;">@m.Area · @(m.IsActive ? "Active" : "Inactive")</div>
                                     </div>
                                     @if (top)
@@ -171,7 +171,7 @@
         _memberResults = string.IsNullOrWhiteSpace(value)
             ? new()
             : MemberService.Members
-                .Where(m => $"{m.FirstName} {m.LastName}".Contains(value, StringComparison.OrdinalIgnoreCase))
+                .Where(m => m.FullName.Contains(value, StringComparison.OrdinalIgnoreCase))
                 .Take(8).ToList();
         _showAddMember = _memberSearch.Length >= 2 && _memberResults.Count == 0;
         if (_showAddMember)
@@ -200,7 +200,7 @@
     private void SelectMember(CBS.Domain.Models.Member m)
     {
         _selectedMember = m;
-        _memberSearch   = $"{m.FirstName} {m.LastName}";
+        _memberSearch   = m.FullName;
         _memberResults.Clear();
         _memberFocused  = false;
         _showAddMember  = false;

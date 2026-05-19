@@ -39,13 +39,13 @@
             <td class="fs-label-bold">FOR THE MONTH OF</td>
             <td style="white-space:nowrap;">
                 <select class="fs-select" @bind="_selectedMonth">
-                    @foreach (var m in Enumerable.Range(1, 12))
+                    @foreach (var m in Enumerable.Range(1, _selectedYear == DateTime.Today.Year ? DateTime.Today.Month : 12))
                     {
                         <option value="@m">@(new DateTime(2000, m, 1).ToString("MMMM"))</option>
                     }
                 </select>
-                <select class="fs-select" style="margin-left:4px; width:70px;" @bind="_selectedYear">
-                    @foreach (var y in Enumerable.Range(DateTime.Today.Year - 3, 6))
+                <select class="fs-select" style="margin-left:4px; width:70px;" @bind="_selectedYear" @bind:after="ClampMonth">
+                    @foreach (var y in Enumerable.Range(DateTime.Today.Year - 3, 4))
                     {
                         <option value="@y">@y</option>
                     }
@@ -477,6 +477,12 @@
 
     private int? Year  => _selectedYear;
     private int? Month => _selectedMonth;
+
+    private void ClampMonth()
+    {
+        if (_selectedYear == DateTime.Today.Year && _selectedMonth > DateTime.Today.Month)
+            _selectedMonth = DateTime.Today.Month;
+    }
 
     private decimal Tithes      => ContributionService.TotalByType(FundTypes.Tithe,      Year, Month);
     private decimal Offerings   => ContributionService.TotalByType(FundTypes.Offering,   Year, Month);

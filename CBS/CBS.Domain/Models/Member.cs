@@ -23,6 +23,11 @@ namespace CBS.Domain.Models
 
         public string Email { get; set; } = string.Empty;
 
+        public string Suffix { get; set; } = string.Empty;
+
+        public string FullName => string.Join(" ",
+            new[] { FirstName, LastName, Suffix }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
         public virtual ICollection<Fund>? Contributions { get; set; }
     }
 }

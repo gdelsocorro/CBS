@@ -19,7 +19,10 @@ public class MemberViewModel
 
     public string Email { get; set; } = string.Empty;
 
-    public string FullName => $"{FirstName} {LastName}".Trim();
+    public string Suffix { get; set; } = string.Empty;
+
+    public string FullName => string.Join(" ",
+        new[] { FirstName, LastName, Suffix }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
     public static MemberViewModel From(Member m) => new()
     {
@@ -28,7 +31,8 @@ public class MemberViewModel
         LastName  = m.LastName,
         Area      = m.Area,
         IsActive  = m.IsActive,
-        Email     = m.Email
+        Email     = m.Email,
+        Suffix    = m.Suffix
     };
 
     public Member ToNew() => new()
@@ -37,7 +41,8 @@ public class MemberViewModel
         LastName  = LastName.Trim(),
         Area      = Area,
         IsActive  = IsActive,
-        Email     = Email.Trim()
+        Email     = Email.Trim(),
+        Suffix    = Suffix.Trim()
     };
 
     public void ApplyTo(Member m)
@@ -47,5 +52,6 @@ public class MemberViewModel
         m.Area      = Area;
         m.IsActive  = IsActive;
         m.Email     = Email.Trim();
+        m.Suffix    = Suffix.Trim();
     }
 }

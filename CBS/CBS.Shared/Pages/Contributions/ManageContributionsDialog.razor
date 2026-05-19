@@ -117,7 +117,7 @@
         var parameters = new DialogParameters { ["Fund"] = fund };
         var dialog = await DialogService.ShowAsync<EditContributionDialog>("Edit Contribution", parameters);
         var result = await dialog.Result;
-        if (!result.Canceled) ContributionService.Update(fund);
+        if (result is { Canceled: false }) ContributionService.Update(fund);
     }
 
     void Close() => MudDialog.Cancel();

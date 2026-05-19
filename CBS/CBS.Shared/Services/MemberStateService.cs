@@ -50,6 +50,8 @@ public class MemberStateService
     public string GetFullName(int memberId)
     {
         var m = _members.FirstOrDefault(m => m.Id == memberId);
-        return m is not null ? $"{m.FirstName} {m.LastName}" : $"Member #{memberId}";
+        return m is not null
+            ? string.Join(" ", new[] { m.FirstName, m.LastName, m.Suffix }.Where(s => !string.IsNullOrWhiteSpace(s)))
+            : $"Member #{memberId}";
     }
 }

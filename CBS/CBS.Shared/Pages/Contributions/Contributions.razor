@@ -153,12 +153,12 @@
         int added = 0, skipped = 0;
         foreach (var row in rows)
         {
-            if (!row.TryGetValue("MemberName", out var memberName) || string.IsNullOrWhiteSpace(memberName)) { skipped++; continue; }
+            if (!row.TryGetValue("Member", out var memberName) || string.IsNullOrWhiteSpace(memberName)) { skipped++; continue; }
             if (!row.TryGetValue("Amount",     out var amtStr)    || !decimal.TryParse(amtStr, out var amount)) { skipped++; continue; }
             row.TryGetValue("Date",     out var dateStr);
             row.TryGetValue("FundType", out var typeStr);
             var member = MemberService.Members.FirstOrDefault(m =>
-                $"{m.FirstName} {m.LastName}".Equals(memberName.Trim(), StringComparison.OrdinalIgnoreCase));
+                m.FullName.Equals(memberName.Trim(), StringComparison.OrdinalIgnoreCase));
             if (member is null) { skipped++; continue; }
             var fundType = Enum.TryParse<FundTypes>(typeStr, true, out var ft) ? ft : FundTypes.Offering;
             var date     = DateTime.TryParse(dateStr, out var d) ? d : DateTime.Today;
