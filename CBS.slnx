@@ -6,4 +6,8 @@
   <Project Path="CBS/CBS/CBS.csproj">
     <Deploy Solution="Debug|*" />
   </Project>
+  <Project Path="db/db.sqlproj" Id="f9f79933-9242-46b8-a236-0f68e803eaf6">
+    <Build />
+    <Deploy />
+  </Project>
 </Solution>
