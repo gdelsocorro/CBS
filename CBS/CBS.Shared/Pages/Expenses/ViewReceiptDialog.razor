@@ -1,0 +1,24 @@
+<MudDialog>
+    <DialogContent>
+        @if (!string.IsNullOrEmpty(ReceiptImage))
+        {
+            <div style="text-align:center;">
+                <img src="@ReceiptImage" style="max-width:100%; max-height:65vh; object-fit:contain;" />
+            </div>
+        }
+        else
+        {
+            <MudText Align="Align.Center" Class="pa-4">No receipt image attached.</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string? ReceiptImage { get; set; }
+
+    void Close() => MudDialog.Cancel();
+}

@@ -1,0 +1,21 @@
+/* Active state: when the link matches the current route */
+.mud-nav-link.active {
+    background-color: var(--mud-palette-primary-hover);
+    color: var(--mud-palette-primary);
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+/* Hover state: when the user hovers any nav link */
+.mud-nav-link:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #1976d2;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+/* Combined state: hovering over the active link */
+.mud-nav-link.active:hover {
+    background-color: var(--mud-palette-primary-darken);
+    color: white;
+}

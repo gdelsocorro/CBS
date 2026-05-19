@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0,
+                   user-scalable=no, viewport-fit=cover" />
+    <title>CBS</title>
+    <base href="/" />
+
+    <!-- Bootstrap + shared styles -->
+    <link rel="stylesheet" href="_content/CBS.Shared/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="_content/CBS.Shared/app.css" />
+
+    <!-- Fonts -->
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap"
+          rel="stylesheet">
+
+    <!-- MudBlazor first -->
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="CBS.Shared.styles.css" />
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif !important;
+            margin: 0;
+        }
+
+        /* ── Loading splash screen ── */
+        #splash {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #0A1929 0%, #0D2747 60%, #1A3A6B 100%);
+            z-index: 9999;
+            transition: opacity 0.4s ease;
+        }
+
+        #splash.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .splash-logo {
+            font-family: 'Poppins', sans-serif;
+            font-size: 52px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 6px;
+        }
+
+        .splash-subtitle {
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            color: rgba(255,255,255,0.55);
+            margin-top: 6px;
+            margin-bottom: 36px;
+            letter-spacing: 1px;
+        }
+
+        .splash-bar {
+            width: 200px;
+            height: 3px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .splash-bar-inner {
+            height: 100%;
+            width: 40%;
+            background: #64B5F6;
+            border-radius: 2px;
+            animation: barSlide 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes barSlide {
+            from { transform: translateX(0); }
+            to   { transform: translateX(150px); }
+        }
+
+        /* ── App container (hidden until Blazor loads) ── */
+        #app {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #app.loaded {
+            opacity: 1;
+        }
+
+        /* ── Global search bar ── */
+        .rounded-search {
+            border-radius: 4px !important;
+            background-color: transparent !important;
+        }
+
+        .rounded-search .mud-input-root {
+            border-radius: 4px;
+            background-color: transparent !important;
+        }
+
+        .rounded-search input {
+            background-color: transparent !important;
+        }
+
+        .rounded-search .mud-input-outlined-border {
+            border-radius: 4px !important;
+        }
+
+        .mud-appbar {
+            height: 64px !important;
+        }
+
+        .mud-main-content {
+            padding-top: 64px !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Splash screen shown immediately -->
+    <div id="splash">
+        <div class="splash-logo">CBS</div>
+        <div class="splash-subtitle">Church Budgeting System</div>
+        <div class="splash-bar">
+            <div class="splash-bar-inner"></div>
+        </div>
+    </div>
+
+    <div class="status-bar-safe-area"></div>
+    <div id="app"></div>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script src="_content/CBS.Shared/js/cbs-utils.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script>
+        Blazor.start().then(function () {
+            // Fade out splash, fade in app
+            var splash = document.getElementById('splash');
+            var app = document.getElementById('app');
+            splash.classList.add('hidden');
+            app.classList.add('loaded');
+            setTimeout(function () { splash.remove(); }, 450);
+        });
+    </script>
+</body>
+</html>

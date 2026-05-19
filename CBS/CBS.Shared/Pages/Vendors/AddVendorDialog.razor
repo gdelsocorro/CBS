@@ -1,0 +1,30 @@
+@using CBS.Shared.ViewModels
+
+<MudDialog>
+    <DialogContent>
+        <div @onkeydown="OnDialogKeyDown">
+            <MudTextField Label="Vendor Name" @bind-Value="_vm.Name" Required="true" />
+            <MudTextField Label="Address" @bind-Value="_vm.Address" />
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Save"
+                   Disabled="@string.IsNullOrWhiteSpace(_vm.Name)">Save</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private VendorViewModel _vm = new();
+
+    private void OnDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_vm.Name))
+            Save();
+    }
+
+    void Save() => MudDialog.Close(DialogResult.Ok(_vm.ToNew()));
+    void Cancel() => MudDialog.Cancel();
+}

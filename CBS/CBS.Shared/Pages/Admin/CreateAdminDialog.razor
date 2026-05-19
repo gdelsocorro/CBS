@@ -1,0 +1,129 @@
+@using CBS.Shared.ViewModels
+@inject CBS.Shared.Services.AdminStateService AdminService
+
+<MudDialog>
+    <DialogContent>
+        @if (!_verified)
+        {
+            <!-- Step 1: verify current admin credentials -->
+            <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary">
+                Enter your credentials to continue.
+            </MudText>
+
+            <MudTextField @bind-Value="_verifyUsername" Label="Your Username"
+                          Variant="Variant.Outlined" Immediate="true" Class="mb-3" />
+            <MudTextField @bind-Value="_verifyPassword" Label="Your Password"
+                          Variant="Variant.Outlined" InputType="InputType.Password"
+                          Immediate="true" Class="mb-3" />
+
+            @if (!string.IsNullOrEmpty(_verifyError))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-2">@_verifyError</MudAlert>
+            }
+        }
+        else
+        {
+            <!-- Step 2: new admin details -->
+            <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary">
+                Fill in the new admin account details.
+            </MudText>
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_vm.FirstName" Label="First Name"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_vm.LastName" Label="Last Name"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_vm.Username" Label="Username"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_vm.Password" Label="Password"
+                                  Variant="Variant.Outlined" InputType="InputType.Password"
+                                  Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_vm.ConfirmPassword" Label="Confirm Password"
+                                  Variant="Variant.Outlined" InputType="InputType.Password"
+                                  Immediate="true" />
+                </MudItem>
+            </MudGrid>
+
+            @if (!string.IsNullOrEmpty(_createError))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-3">@_createError</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        @if (!_verified)
+        {
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Verify">Verify</MudButton>
+        }
+        else
+        {
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Create">Create Account</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    // Step 1
+    private string _verifyUsername = string.Empty;
+    private string _verifyPassword = string.Empty;
+    private string _verifyError    = string.Empty;
+    private bool   _verified       = false;
+
+    // Step 2
+    private AdminViewModel _vm = new();
+    private string _createError = string.Empty;
+
+    private void Verify()
+    {
+        var admin = AdminService.FindByUsername(_verifyUsername);
+        if (admin is null || !admin.IsActive || admin.PasswordHash != _verifyPassword)
+        {
+            _verifyError = "Invalid credentials.";
+            return;
+        }
+        _verified = true;
+    }
+
+    private void Create()
+    {
+        _createError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_vm.Username) || string.IsNullOrWhiteSpace(_vm.FirstName))
+        {
+            _createError = "First name and username are required.";
+            return;
+        }
+        if (_vm.Password.Length < 6)
+        {
+            _createError = "Password must be at least 6 characters.";
+            return;
+        }
+        if (_vm.Password != _vm.ConfirmPassword)
+        {
+            _createError = "Passwords do not match.";
+            return;
+        }
+        if (AdminService.FindByUsername(_vm.Username) is not null)
+        {
+            _createError = "Username already exists.";
+            return;
+        }
+
+        AdminService.Add(_vm.ToNew());
+        MudDialog.Close();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

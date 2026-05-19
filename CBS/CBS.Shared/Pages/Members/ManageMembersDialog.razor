@@ -1,0 +1,129 @@
+@inject IDialogService DialogService
+@inject CBS.Shared.Services.MemberStateService MemberService
+
+<MudDialog Style="width:780px; max-width:100%;">
+    <DialogContent>
+        <div style="height:62vh; display:flex; flex-direction:column; gap:8px;">
+
+            <!-- Search -->
+            <div class="psd-wrap" style="flex-shrink:0;">
+                <MudTextField Value="@_searchString"
+                              ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                              Immediate="true"
+                              @onfocus="@(() => _focused = true)"
+                              @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                              Placeholder="Search members..."
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Margin="Margin.Dense" />
+                @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredMembers.Any())
+                {
+                    <div class="psd-list">
+                        @foreach (var m in _filteredMembers.Take(8))
+                        {
+                            var label = $"{m.FirstName} {m.LastName}";
+                            <div class="psd-item" @onmousedown="@(() => _searchString = label)">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
+                                <span>@label</span>
+                                <span class="psd-item-sub">@m.Area · @(m.IsActive ? "Active" : "Deleted")</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Sort -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink:0;">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+                <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:140px;">
+                    <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+                    <MudSelectItem Value="@("name")">Name</MudSelectItem>
+                    <MudSelectItem Value="@("area")">Area</MudSelectItem>
+                </MudSelect>
+                <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                               Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+            </MudStack>
+
+            <!-- Table -->
+            <div style="overflow-y:auto; flex:1;">
+                <MudTable Items="_sortedMembers" Hover="true" Bordered="true" Striped="true"
+                          RowsPerPage="25" Style="min-width:100%;">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Full Name</MudTh>
+                        <MudTh>Area</MudTh>
+                        <MudTh>Email</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd Style="@(context.IsActive ? "" : "opacity:0.5;")">@context.Id</MudTd>
+                        <MudTd Style="@(context.IsActive ? "" : "opacity:0.5; text-decoration:line-through;")">
+                            @context.FirstName @context.LastName
+                        </MudTd>
+                        <MudTd Style="@(context.IsActive ? "" : "opacity:0.5;")">@context.Area</MudTd>
+                        <MudTd Style="@(context.IsActive ? "" : "opacity:0.5;")">@context.Email</MudTd>
+                        <MudTd>
+                            @if (context.IsActive)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                           OnClick="@(() => OpenEditMemberDialog(context))">Edit</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                           OnClick="@(() => MemberService.Deactivate(context))">Delete</MudButton>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                         Style="font-size:10px; height:20px;">Deleted</MudChip>
+                                <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small"
+                                           OnClick="@(() => { context.IsActive = true; MemberService.Update(context); })">Restore</MudButton>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _searchString = string.Empty;
+    private bool   _focused;
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<CBS.Domain.Models.Member> _filteredMembers =>
+        MemberService.Members.Where(m =>
+            string.IsNullOrWhiteSpace(_searchString)
+            || m.FirstName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || m.LastName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || m.Id.ToString().Contains(_searchString)
+        );
+
+    private IEnumerable<CBS.Domain.Models.Member> _sortedMembers => (_sortBy, _sortDesc) switch
+    {
+        ("name", true)  => _filteredMembers.OrderByDescending(m => m.FirstName).ThenByDescending(m => m.LastName),
+        ("name", false) => _filteredMembers.OrderBy(m => m.FirstName).ThenBy(m => m.LastName),
+        ("area", true)  => _filteredMembers.OrderByDescending(m => m.Area),
+        ("area", false) => _filteredMembers.OrderBy(m => m.Area),
+        (_,      true)  => _filteredMembers.OrderByDescending(m => m.Id),
+        _               => _filteredMembers.OrderBy(m => m.Id),
+    };
+
+    private async Task OpenEditMemberDialog(CBS.Domain.Models.Member member)
+    {
+        var parameters = new DialogParameters { ["Member"] = member };
+        var dialog = await DialogService.ShowAsync<EditMemberDialog>("Edit Member", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled) MemberService.Update(member);
+    }
+
+    void Close() => MudDialog.Cancel();
+}

@@ -1,0 +1,515 @@
+@page "/financial-report"
+@using CBS.Domain.Enums
+@using CBS.Shared.Services
+@inject ContributionStateService ContributionService
+@inject ExpenseStateService ExpenseService
+@inject IJSRuntime JS
+
+<!-- Print button — hidden when printing -->
+<div class="no-print" style="max-width:900px; margin:auto; text-align:right; padding:8px 0;">
+    <button class="fs-print-btn" @onclick="@(async () => await JS.InvokeVoidAsync("window.print"))">
+        🖨 Print / Download PDF
+    </button>
+</div>
+
+<div class="fs-form">
+
+    <!-- Row 1: Form 2 -->
+    <div style="font-size:11pt;">
+        <span>Form 2</span>
+    </div>
+
+    <!-- Row 3: Title -->
+    <div style="text-align:center; font-size:16pt; margin:2px 0 4px 0;">FINANCIAL REPORT</div>
+
+    <!-- Row 4: Instruction bar -->
+    <div class="fs-instruction">
+        INSTRUCTION: Please fill-up the form and send a copy via online.
+    </div>
+
+    <!-- Rows 5–6: Header fields -->
+    <table class="fs-table fs-header-table">
+        <colgroup>
+            <col style="width:22%">
+            <col style="width:22%">
+            <col style="width:12%">
+            <col style="width:44%">
+        </colgroup>
+        <tr>
+            <td class="fs-label-bold">FOR THE MONTH OF</td>
+            <td style="white-space:nowrap;">
+                <select class="fs-select" @bind="_selectedMonth">
+                    @foreach (var m in Enumerable.Range(1, 12))
+                    {
+                        <option value="@m">@(new DateTime(2000, m, 1).ToString("MMMM"))</option>
+                    }
+                </select>
+                <select class="fs-select" style="margin-left:4px; width:70px;" @bind="_selectedYear">
+                    @foreach (var y in Enumerable.Range(DateTime.Today.Year - 3, 6))
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </td>
+            <td class="fs-label-bold" style="padding-left:12px;">AREA</td>
+            <td><input class="fs-input" @bind="_area" /></td>
+        </tr>
+        <tr>
+            <td class="fs-label-bold">Name of Treasurer</td>
+            <td><input class="fs-input" @bind="_treasurer" /></td>
+            <td class="fs-label-bold" style="padding-left:12px; white-space:nowrap;">Date Accomplished</td>
+            <td><input class="fs-input" @bind="_dateAccomplished" placeholder="e.g. April 30, 2026" /></td>
+        </tr>
+    </table>
+
+    <!-- Body: 12-column form table (A–L) -->
+    <table class="fs-table fs-body-table">
+        <colgroup>
+            <col style="width:5.9%">   <!-- A: item number -->
+            <col style="width:4.7%">   <!-- B: sub-letter -->
+            <col style="width:32.6%">  <!-- C-F merged: description -->
+            <col style="width:2%">     <!-- G: P sign (inner items) -->
+            <col style="width:11%">    <!-- H: amount (inner items) -->
+            <col style="width:4%">     <!-- I: P sign (subtotal) -->
+            <col style="width:10%">    <!-- J: amount (subtotal) -->
+            <col style="width:2%">     <!-- K: P sign (main items) -->
+            <col style="width:11%">    <!-- L: amount (main items) -->
+        </colgroup>
+
+        <!-- ═══════════════ ITEM 1: BEGINNING BALANCE ═══════════════ -->
+        <tr>
+            <td class="fs-num">1</td>
+            <td colspan="4" class="fs-main-label">BEGINNING BALANCE</td>
+            <td></td><td></td>
+            <td class="fs-peso">P</td>
+            <td><input class="fs-amount-input" @bind="_beginningBalance" /></td>
+        </tr>
+
+        <!-- ═══════════════ ITEM 2: SOURCES OF FUNDS ═══════════════ -->
+        <tr>
+            <td class="fs-num">2</td>
+            <td colspan="8" class="fs-main-label">
+                SOURCES OF FUNDS (Tithes, Offerings, Donations &amp; Other Income)
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+            <td colspan="2" style="font-size:10pt; padding-top:1px; white-space:nowrap;">
+                Acknowledgment Receipt No.&nbsp;<input class="fs-input-inline" @bind="_ackReceiptFrom" style="width:60px;" />
+                &nbsp;to&nbsp;<input class="fs-input-inline" @bind="_ackReceiptTo" style="width:60px;" />
+            </td>
+            <td colspan="6"></td>
+        </tr>
+
+        <!-- 2a Tithes -->
+        <tr>
+            <td></td>
+            <td class="fs-letter">a.</td>
+            <td colspan="2" class="fs-dotted-label">Tithes</td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display">@Fmt(Tithes)</td>
+            <td></td><td></td><td></td>
+        </tr>
+
+        <!-- 2b Offerings -->
+        <tr>
+            <td></td>
+            <td class="fs-letter">b.</td>
+            <td colspan="2" class="fs-dotted-label">Offerings</td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display">@Fmt(Offerings)</td>
+            <td></td><td></td><td></td>
+        </tr>
+
+        <!-- 2c Donations -->
+        <tr>
+            <td></td>
+            <td class="fs-letter">c.</td>
+            <td colspan="2" class="fs-dotted-label">Donations</td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display">@Fmt(Donations)</td>
+            <td></td><td></td><td></td>
+        </tr>
+
+        <!-- 2d Other Income -->
+        <tr>
+            <td></td>
+            <td class="fs-letter">d.</td>
+            <td colspan="2" class="fs-dotted-label">Other Income</td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display">@Fmt(OtherIncome)</td>
+            <td></td><td></td><td></td>
+        </tr>
+
+        <!-- Total for Item #2 -->
+        <tr>
+            <td></td>
+            <td></td>
+            <td colspan="3" class="fs-dotted-label" style="padding-left:0;">
+                Total for Item #2 (Add item a,b,c,d)
+            </td>
+            <td></td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display">@Fmt(TotalSources)</td>
+            <td></td>
+        </tr>
+
+        <!-- ═══════════════ ITEM 3 ═══════════════ -->
+        <tr>
+            <td class="fs-num">3</td>
+            <td colspan="6" class="fs-dotted-label fs-main-label" style="text-align:left;">
+                TOTAL AMOUNT RECEIVED IN THE MINISTRY AREA (Add Item #1 and Item #2)
+            </td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display fs-main-label">@Fmt(TotalReceived)</td>
+        </tr>
+
+        <!-- ═══════════════ ITEM 4 ═══════════════ -->
+        <tr>
+            <td class="fs-num">4</td>
+            <td colspan="6" class="fs-dotted-label fs-main-label" style="text-align:left;">
+                TOTAL AMOUNT REMITTED TO THE LAMI NAT'L OFFICE
+            </td>
+            <td class="fs-peso">P</td>
+            <td><input class="fs-amount-input" @bind="_remittances" /></td>
+        </tr>
+
+        <!-- ═══════════════ ITEM 5 ═══════════════ -->
+        <tr>
+            <td class="fs-num">5</td>
+            <td colspan="6" class="fs-dotted-label fs-main-label" style="text-align:left;">
+                TOTAL FUND BALANCE AVAILABLE IN THE MIN AREA (Item #3 minus Item #4)
+            </td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display fs-main-label">@Fmt(FundBalanceAvailable)</td>
+        </tr>
+
+        <!-- ═══════════════ ITEM 6: MINISTRY AREA EXPENSES ═══════════════ -->
+        <tr>
+            <td class="fs-num">6</td>
+            <td colspan="8" class="fs-main-label">MINISTRY AREA EXPENSES</td>
+        </tr>
+        <tr>
+            <td></td>
+            <td colspan="8" style="font-style:italic; font-size:9.5pt; color:#333;">
+                (Note: Please attach details of ministry area expenses on a separate sheet.)
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+            <td colspan="8" style="font-weight:bold; font-size:10pt; padding-top:2px;">
+                Maintenance and Other Operating Expenses (Code 200)
+            </td>
+        </tr>
+
+        @foreach (var line in OperatingExpenseLines)
+        {
+            <tr>
+                <td class="fs-num" style="font-size:9.5pt;">@line.Code</td>
+                <td></td>
+                <td colspan="2" class="fs-dotted-label">@line.Label</td>
+                <td class="fs-peso">P</td>
+                <td class="fs-amount-display">@Fmt(ExpenseService.TotalByType(line.Type, Year, Month))</td>
+                <td></td><td></td><td></td>
+            </tr>
+        }
+
+        <tr>
+            <td></td>
+            <td colspan="8" style="font-weight:bold; font-size:10pt; padding-top:2px;">
+                Capital Outlays (Code 300)
+            </td>
+        </tr>
+
+        @foreach (var line in CapitalOutlayLines)
+        {
+            <tr>
+                <td class="fs-num" style="font-size:9.5pt;">@line.Code</td>
+                <td></td>
+                <td colspan="2" class="fs-dotted-label">@line.Label</td>
+                <td class="fs-peso">P</td>
+                <td class="fs-amount-display">@Fmt(ExpenseService.TotalByType(line.Type, Year, Month))</td>
+                <td></td><td></td><td></td>
+            </tr>
+        }
+
+        <!-- ═══════════════ ITEM 7 ═══════════════ -->
+        <tr>
+            <td class="fs-num">7</td>
+            <td colspan="6" class="fs-dotted-label fs-main-label" style="text-align:left;">
+                TOTAL MINISTRY AREA EXPENSES (Add All under Item #6)
+            </td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display fs-main-label">@Fmt(TotalExpenses)</td>
+        </tr>
+
+        <!-- ═══════════════ ITEM 8: ENDING BALANCE ═══════════════ -->
+        <tr class="fs-ending-row">
+            <td class="fs-num">8</td>
+            <td colspan="6" class="fs-dotted-label fs-main-label" style="text-align:left;">
+                ENDING BALANCE (Item #5 minus Item #7)
+            </td>
+            <td class="fs-peso">P</td>
+            <td class="fs-amount-display fs-main-label">@Fmt(EndingBalance)</td>
+        </tr>
+
+    </table>
+
+    <!-- Gray spacer bar -->
+    <div class="fs-gray-bar"></div>
+
+    <!-- Signature block -->
+    <table class="fs-table" style="margin-top:16px;">
+        <colgroup>
+            <col style="width:38%">
+            <col style="width:24%">
+            <col style="width:38%">
+        </colgroup>
+        <tr>
+            <td>Certified True &amp; Correct:</td>
+            <td></td>
+            <td>Noted:</td>
+        </tr>
+        <tr style="height:48px;">
+            <td style="border-bottom:1px solid #000; vertical-align:bottom;"></td>
+            <td></td>
+            <td style="border-bottom:1px solid #000; vertical-align:bottom;"></td>
+        </tr>
+        <tr>
+            <td style="text-align:center; font-size:10pt; padding-top:2px;">Treasurer</td>
+            <td></td>
+            <td style="text-align:center; font-size:10pt; padding-top:2px;">Area Leader</td>
+        </tr>
+    </table>
+
+    <!-- Bottom gray spacer bar -->
+    <div class="fs-gray-bar" style="margin-top:8px;"></div>
+
+</div>
+
+<style>
+    .fs-form {
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        max-width: 900px;
+        margin: auto;
+        background: #fff;
+        padding: 24px 28px;
+        color: #000;
+        line-height: 1.4;
+    }
+
+    .fs-instruction {
+        background: #EAEAEA;
+        font-family: Cambria, Georgia, serif;
+        font-weight: bold;
+        font-size: 10pt;
+        padding: 4px 8px;
+        margin: 4px 0 6px 0;
+    }
+
+    .fs-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .fs-header-table td {
+        padding: 3px 4px;
+        vertical-align: bottom;
+    }
+
+    .fs-body-table td {
+        padding: 2px 3px;
+        vertical-align: bottom;
+    }
+
+    .fs-label-bold {
+        font-weight: bold;
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+    }
+
+    .fs-main-label {
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+        font-weight: normal;
+    }
+
+    .fs-num {
+        text-align: right;
+        padding-right: 6px;
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+        white-space: nowrap;
+    }
+
+    .fs-letter {
+        text-align: right;
+        padding-right: 4px;
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+    }
+
+    /* Dotted leader: label text + overflow dots */
+    .fs-dotted-label {
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+        overflow: hidden;
+        white-space: nowrap;
+        max-width: 0;
+        width: 100%;
+    }
+
+    .fs-dotted-label::after {
+        content: " . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .";
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+        font-size: 11pt;
+    }
+
+    .fs-peso {
+        text-align: right;
+        padding-right: 2px;
+        font-family: 'Calibri Light', Calibri, Arial, sans-serif;
+        white-space: nowrap;
+    }
+
+    .fs-amount-display {
+        border-bottom: 1px solid #000;
+        text-align: right;
+        padding-right: 4px;
+        font-family: Arial, sans-serif;
+        white-space: nowrap;
+    }
+
+    /* Editable input fields styled to match the form underline */
+    .fs-input {
+        border: none;
+        border-bottom: 1px solid #000;
+        outline: none;
+        width: 100%;
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        background: transparent;
+        color: #000;
+        padding: 0 2px;
+    }
+
+    .fs-input-inline {
+        border: none;
+        border-bottom: 1px solid #000;
+        outline: none;
+        width: 55px;
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        background: transparent;
+        color: #000;
+        padding: 0 2px;
+        text-align: center;
+    }
+
+    .fs-select {
+        border: none;
+        border-bottom: 1px solid #000;
+        outline: none;
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        background: transparent;
+        color: #000;
+        padding: 0 2px;
+        cursor: pointer;
+    }
+
+    .fs-amount-input {
+        border: none;
+        border-bottom: 1px solid #000;
+        outline: none;
+        width: 100%;
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        background: transparent;
+        color: #000;
+        text-align: right;
+        padding: 0 4px;
+    }
+
+    .fs-ending-row td {
+        border-top: 1px solid #000;
+        border-bottom: 2px solid #000;
+        font-weight: bold;
+    }
+
+    .fs-gray-bar {
+        background: #D0CECE;
+        height: 4px;
+        margin-top: 4px;
+    }
+
+    .fs-print-btn {
+        font-family: Arial, sans-serif;
+        font-size: 10pt;
+        padding: 6px 16px;
+        cursor: pointer;
+        border: 1px solid #1976d2;
+        background: #fff;
+        color: #1976d2;
+        border-radius: 4px;
+    }
+
+    .fs-print-btn:hover {
+        background: #e3f2fd;
+    }
+
+    @@media print {
+        .no-print { display: none !important; }
+        .mud-drawer, .mud-appbar, .mud-layout-nav { display: none !important; }
+        .mud-main-content { padding: 0 !important; margin: 0 !important; }
+        body, .fs-form { font-size: 10pt; }
+        .fs-print-btn { display: none !important; }
+        @@page { margin: 1cm; }
+    }
+</style>
+
+@code {
+    private int _selectedMonth = DateTime.Today.Month;
+    private int _selectedYear  = DateTime.Today.Year;
+    private string _area = string.Empty;
+    private string _treasurer = string.Empty;
+    private string _dateAccomplished = $"{DateTime.Today:MMMM d, yyyy}";
+    private string _ackReceiptFrom = string.Empty;
+    private string _ackReceiptTo   = string.Empty;
+    private decimal _beginningBalance;
+    private decimal _remittances;
+
+    private int? Year  => _selectedYear;
+    private int? Month => _selectedMonth;
+
+    private decimal Tithes      => ContributionService.TotalByType(FundTypes.Tithe,      Year, Month);
+    private decimal Offerings   => ContributionService.TotalByType(FundTypes.Offering,   Year, Month);
+    private decimal Donations   => ContributionService.TotalByType(FundTypes.Donation,   Year, Month);
+    private decimal OtherIncome => ContributionService.TotalByType(FundTypes.OtherIncome,Year, Month);
+    private decimal TotalSources         => ContributionService.TotalSources(Year, Month);
+    private decimal TotalReceived        => _beginningBalance + TotalSources;
+    private decimal FundBalanceAvailable => TotalReceived - _remittances;
+    private decimal TotalExpenses        => ExpenseService.TotalExpenses(Year, Month);
+    private decimal EndingBalance        => FundBalanceAvailable - TotalExpenses;
+
+    private static string Fmt(decimal v) => v.ToString("N2");
+
+    private record ExpenseLine(string Code, string Label, ExpenseTypes Type);
+
+    private static readonly ExpenseLine[] OperatingExpenseLines =
+    {
+        new("200-02", "Communication Services",                                  ExpenseTypes.CommunicationServices),
+        new("200-03", "Repair & Maintenance of Min Vehicles, Eqpt & Facilities", ExpenseTypes.RepairAndMaintenance),
+        new("200-04", "Transportation Services",                                 ExpenseTypes.TransportationServices),
+        new("200-05", "Supplies and Materials",                                  ExpenseTypes.SuppliesAndMaterials),
+        new("200-06", "Rents",                                                   ExpenseTypes.Rents),
+        new("200-07", "Love Gifts and Contribution",                             ExpenseTypes.LoveGiftsAndContributions),
+        new("200-08", "Water, Light and Power Services",                         ExpenseTypes.WaterLightAndPower),
+        new("200-09", "Taxes and Licenses",                                      ExpenseTypes.TaxesAndLicenses),
+        new("200-10", "Ministry Services",                                       ExpenseTypes.MinistryServices),
+        new("200-11", "Other Services",                                          ExpenseTypes.OtherServices),
+    };
+
+    private static readonly ExpenseLine[] CapitalOutlayLines =
+    {
+        new("300-35", "Furniture, Fixture, Books & Equipment",         ExpenseTypes.FurnitureFixtureBookAndEquipment),
+        new("300-36", "Building Structure Outlays",                    ExpenseTypes.BuildingStructureOutlays),
+        new("300-37", "Motor Vehicles & Other Heavy Equipment",        ExpenseTypes.MotorVehiclesAndOtherHeavyEquipment),
+    };
+}

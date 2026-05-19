@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\Claude\\\\\" -ErrorAction SilentlyContinue | Select-Object Name, FullName)",
+      "Bash(python extract_fs.py)",
+      "Bash(where python3 *)",
+      "Bash(where py *)",
+      "Read(//c/Users/Glenn Ray/AppData/Local/Programs/**)",
+      "PowerShell(py --version 2>&1)",
+      "PowerShell(python3 --version 2>&1)",
+      "PowerShell(& \"C:\\\\Users\\\\Glenn Ray\\\\AppData\\\\Local\\\\Microsoft\\\\WindowsApps\\\\python3.exe\" --version 2>&1)",
+      "PowerShell($paths = @\\(\"C:\\\\Python39\", \"C:\\\\Python310\", \"C:\\\\Python311\", \"C:\\\\Python312\", \"C:\\\\Python313\", \"$env:USERPROFILE\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python39\", \"$env:USERPROFILE\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python310\", \"$env:USERPROFILE\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\", \"$env:USERPROFILE\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\", \"$env:USERPROFILE\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\"\\); foreach \\($p in $paths\\) { if \\(Test-Path \"$p\\\\python.exe\"\\) { Write-Output \"Found: $p\\\\python.exe\" } })",
+      "Bash(\"/c/Users/Glenn Ray/AppData/Local/Programs/KiCad/10.0/bin/python.exe\" --version)",
+      "Bash(dotnet build *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Glenn Ray\\\\source\\\\repos\\\\CBS\\\\CBS\" -Recurse -Filter \"*.csproj\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Glenn Ray\\\\source\\\\repos\\\\CBS\\\\CBS\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(dotnet ef *)"
+    ]
+  }
+}

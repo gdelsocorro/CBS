@@ -1,0 +1,408 @@
+@inherits LayoutComponentBase
+@inject NavigationManager NavManager
+@inject CBS.Shared.Services.VendorStateService VendorService
+@inject CBS.Shared.Services.MemberStateService MemberService
+@inject CBS.Shared.Services.ContributionStateService ContributionService
+@inject CBS.Shared.Services.ExpenseStateService ExpenseService
+@inject CBS.Shared.Services.NotificationStateService NotifService
+@inject CBS.Shared.Services.AdminStateService AdminService
+@inject IDialogService DialogService
+@implements IDisposable
+@using CBS.Shared.Services
+@using CBS.Shared.Pages.Admin
+
+<MudThemeProvider Theme="_currentTheme" @bind-IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Style="border-bottom:1px solid rgba(0,0,0,0.08);">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="DrawerToggle" />
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="ml-2">
+            <MudIcon Icon="@Icons.Custom.Brands.MudBlazor" Size="Size.Large" Color="Color.Primary" />
+            <MudText Typo="Typo.h5" Style="font-family:'Poppins',sans-serif;font-weight:600;letter-spacing:1px;">CBS</MudText>
+        </MudStack>
+
+        <MudSpacer />
+
+        <!-- Global search -->
+        <div style="position:relative; width:42%; min-width:260px;">
+            <MudTextField Value="@_searchString"
+                          ValueChanged="@((string v) => OnSearchChanged(v))"
+                          Immediate="true"
+                          @onfocus="OnSearchFocus"
+                          @onblur="OnSearchBlur"
+                          Placeholder="Search anything..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Class="gsd-input mt-0" />
+            @if (_showSearch && _searchResults.Count > 0)
+            {
+                <div class="gsd-dropdown">
+                    @foreach (var group in _searchResults.GroupBy(r => r.Category))
+                    {
+                        <div class="gsd-category">@group.Key</div>
+                        @foreach (var item in group)
+                        {
+                            <div class="gsd-item" @onmousedown="@(() => NavigateToResult(item.Path))">
+                                <MudIcon Icon="@item.Icon" Size="Size.Small" Class="gsd-icon" />
+                                <div class="gsd-text">
+                                    <div class="gsd-label">@item.Label</div>
+                                    @if (!string.IsNullOrEmpty(item.Sub))
+                                    {
+                                        <div class="gsd-sub">@item.Sub</div>
+                                    }
+                                </div>
+                                <span class="gsd-path">@item.Path</span>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+
+        <MudSpacer />
+
+        <!-- Notification bell -->
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Class="mr-4">
+            <ActivatorContent>
+                <MudBadge Content="@NotifService.UnreadCount"
+                          Visible="@(NotifService.UnreadCount > 0)"
+                          Color="Color.Error" Overlap="true" Bordered="true" BadgeClass="mud-badge-dot-fix">
+                    <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+                </MudBadge>
+            </ActivatorContent>
+            <ChildContent>
+                <div style="width:340px; max-height:460px; display:flex; flex-direction:column;">
+                    <!-- Header -->
+                    <div style="display:flex; align-items:center; padding:12px 16px 8px; border-bottom:1px solid rgba(0,0,0,0.08);">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600; flex:1;">Notifications</MudText>
+                        @if (NotifService.UnreadCount > 0)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                       OnClick="NotifService.MarkAllRead">Mark all read</MudButton>
+                        }
+                        @if (NotifService.Items.Any())
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.ClearAll" Size="Size.Small"
+                                           Title="Clear all" OnClick="NotifService.Clear" />
+                        }
+                    </div>
+                    <!-- List -->
+                    <div style="overflow-y:auto; flex:1;">
+                        @if (!NotifService.Items.Any())
+                        {
+                            <div style="padding:32px 16px; text-align:center; color:#90A4AE;">
+                                <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" Style="font-size:40px;" />
+                                <MudText Typo="Typo.body2" Class="mt-2">No notifications</MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var n in NotifService.Items)
+                            {
+                                <div class="notif-item @(n.IsRead ? "" : "notif-unread")"
+                                     @onclick="@(() => NotifService.MarkRead(n.Id))">
+                                    <MudIcon Icon="@NotifIcon(n.Severity)" Size="Size.Small"
+                                             Style="@($"color:{NotifColor(n.Severity)}; flex-shrink:0; margin-top:2px;")" />
+                                    <div style="flex:1; min-width:0;">
+                                        <div class="notif-title" style="font-weight:@(n.IsRead ? "400" : "600");">@n.Title</div>
+                                        <div class="notif-msg">@n.Message</div>
+                                        <div class="notif-time">@n.Time.ToString("MMM d, h:mm tt")</div>
+                                    </div>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                   Style="opacity:0.4; flex-shrink:0;"
+                                                   OnClick="@(() => NotifService.Remove(n.Id))" />
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </ChildContent>
+        </MudMenu>
+
+        <MudText Style="font-family:'Poppins',sans-serif;margin-right:8px;" Color="Color.Inherit">Glenn Ray</MudText>
+        <MudAvatar Size="Size.Small" Color="Color.Secondary" Class="mr-2">GR</MudAvatar>
+
+        <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" Variant="Variant.Filled" Color="Color.Primary"
+                 AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Size="Size.Small" Class="mr-2">
+            <ChildContent>
+                <MudMenuItem AutoClose="false">
+                    <div class="d-flex align-center w-100">
+                        <MudIcon Icon="@(_isDarkMode ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" Class="mr-3" />
+                        <MudText>Dark Mode</MudText>
+                        <MudSpacer />
+                        <MudSwitch @bind-Value="_isDarkMode" Color="Color.Primary" T="bool" />
+                    </div>
+                </MudMenuItem>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Person"         OnClick="@(() => HandleAction("Account"))">Account</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.PersonAdd"  OnClick="@(() => HandleAction("CreateAdmin"))">Create Admin</MudMenuItem>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout"         OnClick="@(() => HandleAction("Logout"))" IconColor="Color.Error">
+                    <MudText Color="Color.Error">Logout</MudText>
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0"
+               Style="border-right:1px solid rgba(0,0,0,0.08);">
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4 pt-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+<style>
+    .mud-appbar { height:64px !important; }
+    .mud-main-content { padding-top:64px !important; }
+
+    .gsd-input .mud-input-root,
+    .gsd-input .mud-input-outlined-border { border-radius:4px !important; }
+
+    .gsd-dropdown {
+        position:absolute; top:calc(100% + 4px); left:0; right:0;
+        background:var(--mud-palette-surface,#fff);
+        border:1px solid rgba(0,0,0,0.1); border-radius:4px;
+        box-shadow:0 8px 24px rgba(0,0,0,0.13);
+        z-index:9500; max-height:440px; overflow-y:auto;
+        animation:gsdIn 0.14s ease;
+    }
+    @@keyframes gsdIn {
+        from { opacity:0; transform:translateY(-6px); }
+        to   { opacity:1; transform:translateY(0); }
+    }
+    .gsd-category {
+        font-size:10px; font-weight:700; text-transform:uppercase;
+        letter-spacing:1px; color:#90A4AE; padding:10px 14px 4px;
+        border-top:1px solid rgba(0,0,0,0.05);
+    }
+    .gsd-category:first-child { border-top:none; }
+    .gsd-item {
+        display:flex; align-items:center; gap:10px; padding:8px 14px;
+        cursor:pointer; transition:background 0.1s ease;
+    }
+    .gsd-item:hover { background:var(--mud-palette-action-default-hover); }
+    .gsd-icon { color:#90A4AE; flex-shrink:0; }
+    .gsd-text { flex:1; min-width:0; }
+    .gsd-label { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .gsd-sub   { font-size:11px; color:#90A4AE; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .gsd-path  {
+        font-size:10px; color:#1E88E5; background:rgba(30,136,229,0.1);
+        padding:2px 8px; border-radius:2px; white-space:nowrap; flex-shrink:0; font-family:monospace;
+    }
+
+    /* Notification items */
+    .notif-item {
+        display:flex; align-items:flex-start; gap:10px;
+        padding:10px 14px; cursor:pointer;
+        transition:background 0.1s ease;
+        border-bottom:1px solid rgba(0,0,0,0.04);
+    }
+    .notif-item:hover { background:var(--mud-palette-action-default-hover); }
+    .notif-unread { background:rgba(30,136,229,0.08); }
+    .notif-title  { font-size:13px; color:var(--mud-palette-text-primary); }
+    .notif-msg    { font-size:12px; color:var(--mud-palette-text-secondary); white-space:normal; line-height:1.4; }
+    .notif-time   { font-size:10px; color:var(--mud-palette-text-disabled); margin-top:2px; }
+    .mud-badge-dot-fix { font-size:11px !important; min-width:18px !important; height:18px !important; }
+
+    /* Page suggestion dropdowns (shared) */
+    .psd-wrap { position:relative; display:flow-root; }
+    .psd-list {
+        position:absolute; top:100%; left:0; right:0;
+        background:var(--mud-palette-surface,#fff);
+        border:1px solid rgba(0,0,0,0.1); border-radius:4px;
+        box-shadow:0 4px 16px rgba(0,0,0,0.1);
+        z-index:2000; max-height:220px; overflow-y:auto;
+        animation:gsdIn 0.12s ease;
+    }
+    .psd-item {
+        display:flex; align-items:center; gap:8px; padding:7px 12px;
+        cursor:pointer; font-size:13px; transition:background 0.1s ease;
+    }
+    .psd-item:hover { background:var(--mud-palette-action-default-hover); }
+    .psd-item-sub { font-size:11px; color:#90A4AE; margin-left:auto; }
+
+    .mud-button-root { transition:background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease !important; }
+    .mud-button-root:hover  { transform:translateY(-1px); }
+    .mud-button-root:active { transform:translateY(0); }
+    .mud-icon-button { transition:background-color 0.15s ease, transform 0.1s ease !important; }
+    .mud-nav-link    { transition:background-color 0.15s ease, color 0.15s ease !important; border-radius:4px !important; }
+    .mud-paper       { transition:box-shadow 0.2s ease !important; }
+</style>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+    private string _searchString = string.Empty;
+    private bool _showSearch = false;
+    private List<SearchResult> _searchResults = new();
+
+    private record SearchResult(string Category, string Label, string Sub, string Path, string Icon);
+
+    protected override void OnInitialized()
+    {
+        NavManager.LocationChanged += OnLocationChanged;
+        NotifService.OnChanged += OnNotifChanged;
+
+        if (NavManager.Uri.EndsWith("/"))
+            NavManager.NavigateTo("/login", true);
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnNotifChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavManager.LocationChanged -= OnLocationChanged;
+        NotifService.OnChanged -= OnNotifChanged;
+    }
+
+    // ── Notification helpers ───────────────────────────────────────────
+
+    private static string NotifIcon(AppNotificationSeverity s) => s switch
+    {
+        AppNotificationSeverity.Success => Icons.Material.Filled.CheckCircle,
+        AppNotificationSeverity.Warning => Icons.Material.Filled.Warning,
+        AppNotificationSeverity.Error   => Icons.Material.Filled.Error,
+        _                               => Icons.Material.Filled.Info,
+    };
+
+    private static string NotifColor(AppNotificationSeverity s) => s switch
+    {
+        AppNotificationSeverity.Success => "#4CAF50",
+        AppNotificationSeverity.Warning => "#FF9800",
+        AppNotificationSeverity.Error   => "#f44336",
+        _                               => "#1E88E5",
+    };
+
+    // ── Global search ──────────────────────────────────────────────────
+
+    private void OnSearchChanged(string value)
+    {
+        _searchString = value ?? string.Empty;
+        _searchResults = BuildResults(_searchString);
+        _showSearch = _searchResults.Count > 0;
+    }
+
+    private void OnSearchFocus()  { if (_searchResults.Count > 0) _showSearch = true; }
+    private async Task OnSearchBlur() { await Task.Delay(180); _showSearch = false; }
+
+    private void NavigateToResult(string path)
+    {
+        _showSearch = false;
+        _searchString = string.Empty;
+        _searchResults.Clear();
+        NavManager.NavigateTo(path);
+    }
+
+    private List<SearchResult> BuildResults(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return new();
+        var q = query.Trim();
+        var list = new List<SearchResult>();
+
+        (string Name, string Path, string Icon)[] pages =
+        {
+            ("Financial Report", "/financial-report", Icons.Material.Filled.Assessment),
+            ("Vendors",          "/vendors",           Icons.Material.Filled.LocalConvenienceStore),
+            ("Contributions",    "/contributions",     Icons.Material.Filled.FrontHand),
+            ("Expenses",         "/expenses",          Icons.Material.Filled.Wallet),
+            ("Members",          "/members",           Icons.Material.Filled.CardMembership),
+            ("Account",          "/profile",           Icons.Material.Filled.Person),
+        };
+        list.AddRange(pages
+            .Where(p => p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .Select(p => new SearchResult("Pages", p.Name, p.Path, p.Path, p.Icon)));
+
+        list.AddRange(MemberService.Members
+            .Where(m => $"{m.FirstName} {m.LastName}".Contains(q, StringComparison.OrdinalIgnoreCase) || m.Id.ToString() == q)
+            .Take(5)
+            .Select(m => new SearchResult("Members",
+                $"{m.FirstName} {m.LastName}",
+                $"{m.Area} · {(m.IsActive ? "Active" : "Inactive")}",
+                "/members", Icons.Material.Filled.Person)));
+
+        list.AddRange(VendorService.Vendors
+            .Where(v => v.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrEmpty(v.Address) && v.Address.Contains(q, StringComparison.OrdinalIgnoreCase)))
+            .Take(5)
+            .Select(v => new SearchResult("Vendors",
+                v.Name, v.Address,
+                $"/vendors/{v.Id}/transactions", Icons.Material.Filled.LocalConvenienceStore)));
+
+        list.AddRange(ExpenseService.Expenses
+            .Where(e => e.Description.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        VendorService.GetName(e.VendorId).Contains(q, StringComparison.OrdinalIgnoreCase))
+            .Take(4)
+            .Select(e => new SearchResult("Expenses",
+                e.Description, $"₱{e.Amount:N2} · {VendorService.GetName(e.VendorId)}",
+                "/expenses", Icons.Material.Filled.Wallet)));
+
+        list.AddRange(ContributionService.Contributions
+            .Where(c => c.ContributionType.ToString().Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        c.Amount.ToString().Contains(q))
+            .Take(4)
+            .Select(c => new SearchResult("Contributions",
+                c.ContributionType.ToString(),
+                $"₱{c.Amount:N2} · {c.ContributionDate.ToShortDateString()}",
+                "/contributions", Icons.Material.Filled.FrontHand)));
+
+        return list;
+    }
+
+    // ── Theme ─────────────────────────────────────────────────────────
+
+    private MudTheme _currentTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary          = "#1E88E5",
+            Secondary        = "#00C853",
+            AppbarBackground = "#FFFFFF",
+            AppbarText       = "#2c3e50",
+            Background       = "#F4F7F9",
+            Surface          = "#FFFFFF",
+            TextPrimary      = "#2c3e50"
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary          = "#90CAF9",
+            Secondary        = "#69F0AE",
+            AppbarBackground = "#1A1A2E",
+            Background       = "#12121F",
+            Surface          = "#1E1E30",
+            TextPrimary      = "#E0E0E0"
+        },
+        LayoutProperties = new LayoutProperties() { DefaultBorderRadius = "4px" }
+    };
+
+    void DrawerToggle() => _drawerOpen = !_drawerOpen;
+
+    private async void HandleAction(string item)
+    {
+        switch (item)
+        {
+            case "Account":     NavManager.NavigateTo("/profile"); break;
+            case "CreateAdmin": await DialogService.ShowAsync<CreateAdminDialog>("Create Admin Account"); break;
+            case "Logout":      NavManager.NavigateTo("/");        break;
+        }
+    }
+}

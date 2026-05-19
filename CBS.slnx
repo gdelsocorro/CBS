@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="CBS/CBS.Domain/CBS.Domain.csproj" />
+  <Project Path="CBS/CBS.Infrastructure/CBS.Infrastructure.csproj" />
+  <Project Path="CBS/CBS.Shared/CBS.Shared.csproj" />
+  <Project Path="CBS/CBS.Web/CBS.Web.csproj" />
+  <Project Path="CBS/CBS/CBS.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>

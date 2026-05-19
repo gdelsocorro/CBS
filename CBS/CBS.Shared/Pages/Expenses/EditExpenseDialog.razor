@@ -1,0 +1,137 @@
+@using CBS.Shared.ViewModels
+@using Microsoft.AspNetCore.Components.Forms
+@inject CBS.Shared.Services.VendorStateService VendorService
+
+<MudDialog>
+    <DialogContent>
+        <!-- Vendor search -->
+        <div class="psd-wrap mb-4">
+            <MudTextField Value="@_vendorSearch"
+                          ValueChanged="@((string v) => OnVendorSearch(v))"
+                          Immediate="true"
+                          @onfocus="@(() => _vendorFocused = true)"
+                          @onblur="@(async () => { await Task.Delay(160); _vendorFocused = false; StateHasChanged(); })"
+                          @onkeydown="OnVendorKeyDown"
+                          Label="Vendor"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Store"
+                          AdornmentColor="Color.Success"
+                          HelperText="@(_selectedVendor is null ? "" : $"ID {_selectedVendor.Id} · {_selectedVendor.Address}")" />
+
+            @if (_vendorFocused && _vendorResults.Any())
+            {
+                <div class="psd-list">
+                    @foreach (var v in _vendorResults)
+                    {
+                        <div class="psd-item" @onmousedown="@(() => SelectVendor(v))">
+                            <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Style="color:#90A4AE;" />
+                            <span>@v.Name</span>
+                            @if (!string.IsNullOrEmpty(v.Address))
+                            {
+                                <span class="psd-item-sub">@v.Address</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <MudDatePicker Label="Expense Date" @bind-Date="_vm.Date" Required="true" Class="mb-2" />
+        <MudTextField Label="Description" @bind-Value="_vm.Description" Required="true" Class="mb-2" />
+        <MudNumericField Label="Amount" @bind-Value="_vm.Amount" Required="true" Class="mb-2" />
+        <MudSelect T="CBS.Domain.Enums.ExpenseTypes" Label="Expense Type" @bind-Value="_vm.ExpenseType" Required="true" Class="mb-3">
+            @foreach (var type in Enum.GetValues<CBS.Domain.Enums.ExpenseTypes>())
+            {
+                <MudSelectItem Value="@type">@type.GetDisplayName()</MudSelectItem>
+            }
+        </MudSelect>
+
+        <!-- Receipt Image -->
+        <MudText Typo="Typo.body2" Class="mb-1">Receipt Image</MudText>
+        <InputFile id="editReceiptFile" OnChange="HandleFileChanged" accept="image/*" style="display:none;" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudButton HtmlTag="label" for="editReceiptFile" Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Upload" Size="Size.Small">
+                @(string.IsNullOrEmpty(_vm.ReceiptImage) ? "Upload Receipt" : "Replace Receipt")
+            </MudButton>
+            @if (!string.IsNullOrEmpty(_vm.ReceiptImage))
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                           OnClick="@(() => _vm.ReceiptImage = null)">Remove</MudButton>
+            }
+        </MudStack>
+        @if (!string.IsNullOrEmpty(_vm.ReceiptImage))
+        {
+            <img src="@_vm.ReceiptImage" style="max-width:100%; max-height:200px; object-fit:contain; margin-top:8px;" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Save">Save</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CBS.Domain.Models.Expense Expense { get; set; } = default!;
+
+    private ExpenseViewModel _vm = new();
+    private string _vendorSearch = string.Empty;
+    private bool _vendorFocused;
+    private CBS.Domain.Models.Vendor? _selectedVendor;
+    private List<CBS.Domain.Models.Vendor> _vendorResults = new();
+
+    protected override void OnParametersSet()
+    {
+        _vm = ExpenseViewModel.From(Expense);
+        _selectedVendor = VendorService.Vendors.FirstOrDefault(v => v.Id == Expense.VendorId);
+        _vendorSearch = _selectedVendor?.Name ?? string.Empty;
+    }
+
+    private void OnVendorKeyDown(KeyboardEventArgs e)
+    {
+        if ((e.Key == "Enter" || e.Key == "Tab") && _vendorResults.Count > 0)
+            SelectVendor(_vendorResults[0]);
+    }
+
+    private void OnVendorSearch(string value)
+    {
+        _vendorSearch   = value ?? string.Empty;
+        _selectedVendor = null;
+        _vm.VendorId    = 0;
+        _vendorResults  = string.IsNullOrWhiteSpace(value)
+            ? new()
+            : VendorService.Vendors
+                .Where(v => v.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+                .Take(8).ToList();
+    }
+
+    private void SelectVendor(CBS.Domain.Models.Vendor v)
+    {
+        _selectedVendor = v;
+        _vendorSearch   = v.Name;
+        _vm.VendorId    = v.Id;
+        _vendorResults.Clear();
+        _vendorFocused  = false;
+    }
+
+    private async Task HandleFileChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _vm.ReceiptImage = $"data:{file.ContentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+    }
+
+    void Save()
+    {
+        if (_selectedVendor is not null) _vm.VendorId = _selectedVendor.Id;
+        _vm.ApplyTo(Expense);
+        MudDialog.Close(DialogResult.Ok(Expense));
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

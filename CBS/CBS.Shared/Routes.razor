@@ -1,0 +1,14 @@
+﻿@using CBS.Shared.Pages
+
+<Router AppAssembly="@typeof(MainLayout).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            @* This renders your new custom page inside the layout *@
+            <NotFound/> 
+        </LayoutView>
+    </NotFound>
+</Router>

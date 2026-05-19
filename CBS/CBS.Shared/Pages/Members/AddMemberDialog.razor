@@ -1,0 +1,36 @@
+@using CBS.Shared.ViewModels
+
+<MudDialog>
+    <DialogContent>
+        <div @onkeydown="OnDialogKeyDown">
+            <MudTextField Label="First Name" @bind-Value="_vm.FirstName" Required="true" />
+            <MudTextField Label="Last Name" @bind-Value="_vm.LastName" />
+            <MudTextField Label="Email" @bind-Value="_vm.Email" InputType="InputType.Email" />
+            <MudSelect T="CBS.Domain.Enums.Areas" Label="Area" @bind-Value="_vm.Area" Required="true">
+                @foreach (var area in Enum.GetValues<CBS.Domain.Enums.Areas>())
+                {
+                    <MudSelectItem Value="@area">@area.ToString()</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Save"
+                   Disabled="@string.IsNullOrWhiteSpace(_vm.FirstName)">Save</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="@(() => MudDialog.Cancel())">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MemberViewModel _vm = new();
+
+    private void OnDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_vm.FirstName))
+            Save();
+    }
+
+    void Save() => MudDialog.Close(DialogResult.Ok(_vm.ToNew()));
+}

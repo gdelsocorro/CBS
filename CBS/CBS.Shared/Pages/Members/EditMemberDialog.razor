@@ -1,0 +1,37 @@
+@using CBS.Shared.ViewModels
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField Label="First Name" @bind-Value="_vm.FirstName" Required="true" />
+        <MudTextField Label="Last Name" @bind-Value="_vm.LastName" />
+        <MudTextField Label="Email" @bind-Value="_vm.Email" InputType="InputType.Email" />
+        <MudSelect T="CBS.Domain.Enums.Areas" Label="Area" @bind-Value="_vm.Area" Required="true">
+            @foreach (var area in Enum.GetValues<CBS.Domain.Enums.Areas>())
+            {
+                <MudSelectItem Value="@area">@area.ToString()</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Save"
+                   Disabled="@string.IsNullOrWhiteSpace(_vm.FirstName)">Save</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CBS.Domain.Models.Member Member { get; set; } = default!;
+
+    private MemberViewModel _vm = new();
+
+    protected override void OnParametersSet() => _vm = MemberViewModel.From(Member);
+
+    void Save()
+    {
+        _vm.ApplyTo(Member);
+        MudDialog.Close(DialogResult.Ok(Member));
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

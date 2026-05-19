@@ -1,0 +1,135 @@
+@inject IDialogService DialogService
+@inject CBS.Shared.Services.VendorStateService VendorService
+@inject CBS.Shared.Services.ExpenseStateService ExpenseService
+
+<MudDialog Style="width:900px; max-width:100%;">
+    <DialogContent>
+        <div style="height:62vh; display:flex; flex-direction:column; gap:8px;">
+
+            <!-- Search -->
+            <div class="psd-wrap" style="flex-shrink:0;">
+                <MudTextField Value="@_searchString"
+                              ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                              Immediate="true"
+                              @onfocus="@(() => _focused = true)"
+                              @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                              Placeholder="Search expenses..."
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Margin="Margin.Dense" />
+                @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredExpenses.Any())
+                {
+                    <div class="psd-list">
+                        @foreach (var e in _filteredExpenses.Take(8))
+                        {
+                            <div class="psd-item" @onmousedown="@(() => _searchString = e.Description)">
+                                <MudIcon Icon="@Icons.Material.Filled.Wallet" Size="Size.Small" Style="color:#90A4AE;" />
+                                <span>@e.Description</span>
+                                <span class="psd-item-sub">@VendorService.GetName(e.VendorId) · ₱@e.Amount.ToString("N2")</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Sort -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink:0;">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+                <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:140px;">
+                    <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+                    <MudSelectItem Value="@("date")">Date</MudSelectItem>
+                    <MudSelectItem Value="@("vendor")">Vendor</MudSelectItem>
+                    <MudSelectItem Value="@("amount")">Amount</MudSelectItem>
+                </MudSelect>
+                <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                               Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+            </MudStack>
+
+            <!-- Table -->
+            <div style="overflow-y:auto; flex:1;">
+                <MudTable Items="_sortedExpenses" Hover="true" Bordered="true" Striped="true"
+                          RowsPerPage="25" Style="min-width:100%;">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Vendor</MudTh>
+                        <MudTh>Description</MudTh>
+                        <MudTh>Type</MudTh>
+                        <MudTh>Amount</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Id</MudTd>
+                        <MudTd>@context.ExpenseDate.ToShortDateString()</MudTd>
+                        <MudTd>@VendorService.GetName(context.VendorId)</MudTd>
+                        <MudTd>@context.Description</MudTd>
+                        <MudTd>@context.ExpenseType.GetDisplayName()</MudTd>
+                        <MudTd>@context.Amount.ToString("C")</MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                       OnClick="@(() => OpenEditExpenseDialog(context))">Edit</MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
+                                           Color="@(string.IsNullOrEmpty(context.ReceiptImage) ? Color.Default : Color.Success)"
+                                           Title="View Receipt"
+                                           OnClick="@(() => OpenViewReceiptDialog(context))" />
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => ExpenseService.Remove(context))">Delete</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _searchString = string.Empty;
+    private bool   _focused;
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<CBS.Domain.Models.Expense> _filteredExpenses =>
+        ExpenseService.Expenses.Where(e =>
+            string.IsNullOrWhiteSpace(_searchString)
+            || VendorService.GetName(e.VendorId).Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || e.Description.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || e.ExpenseType.GetDisplayName().Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || e.ExpenseDate.ToShortDateString().Contains(_searchString)
+        );
+
+    private IEnumerable<CBS.Domain.Models.Expense> _sortedExpenses => (_sortBy, _sortDesc) switch
+    {
+        ("date",   true)  => _filteredExpenses.OrderByDescending(e => e.ExpenseDate),
+        ("date",   false) => _filteredExpenses.OrderBy(e => e.ExpenseDate),
+        ("vendor", true)  => _filteredExpenses.OrderByDescending(e => VendorService.GetName(e.VendorId)),
+        ("vendor", false) => _filteredExpenses.OrderBy(e => VendorService.GetName(e.VendorId)),
+        ("amount", true)  => _filteredExpenses.OrderByDescending(e => e.Amount),
+        ("amount", false) => _filteredExpenses.OrderBy(e => e.Amount),
+        (_,        true)  => _filteredExpenses.OrderByDescending(e => e.Id),
+        _                 => _filteredExpenses.OrderBy(e => e.Id),
+    };
+
+    private async Task OpenEditExpenseDialog(CBS.Domain.Models.Expense expense)
+    {
+        var parameters = new DialogParameters { ["Expense"] = expense };
+        var dialog = await DialogService.ShowAsync<EditExpenseDialog>("Edit Expense", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled) ExpenseService.Update(expense);
+    }
+
+    private async Task OpenViewReceiptDialog(CBS.Domain.Models.Expense expense)
+    {
+        var parameters = new DialogParameters { ["ReceiptImage"] = expense.ReceiptImage };
+        await DialogService.ShowAsync<ViewReceiptDialog>($"Receipt — {expense.Description}", parameters);
+    }
+
+    void Close() => MudDialog.Cancel();
+}

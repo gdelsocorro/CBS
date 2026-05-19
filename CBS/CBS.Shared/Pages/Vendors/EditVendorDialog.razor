@@ -1,0 +1,30 @@
+@using CBS.Shared.ViewModels
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField Label="Vendor Name" @bind-Value="_vm.Name" Required="true" />
+        <MudTextField Label="Address" @bind-Value="_vm.Address" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Save"
+                   Disabled="@string.IsNullOrWhiteSpace(_vm.Name)">Save</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CBS.Domain.Models.Vendor Vendor { get; set; } = default!;
+
+    private VendorViewModel _vm = new();
+
+    protected override void OnParametersSet() => _vm = VendorViewModel.From(Vendor);
+
+    void Save()
+    {
+        _vm.ApplyTo(Vendor);
+        MudDialog.Close(DialogResult.Ok(Vendor));
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

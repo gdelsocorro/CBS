@@ -1,0 +1,152 @@
+@page "/vendors/{VendorId:int}/transactions"
+@using MudBlazor
+@using CBS.Domain.Models
+@using CBS.Domain.Enums
+@using CBS.Shared.Services
+@using CBS.Shared.Pages.Expenses
+@inject NavigationManager NavManager
+@inject VendorStateService VendorService
+@inject ExpenseStateService ExpenseService
+@inject IDialogService DialogService
+
+@{
+    var vendor = VendorService.Vendors.FirstOrDefault(v => v.Id == VendorId);
+}
+
+<MudPaper Class="pa-4">
+
+    <!-- Header -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="GoBack" />
+        <div style="flex:1;">
+            <MudText Typo="Typo.h4">@(vendor?.Name ?? $"Vendor #{VendorId}")</MudText>
+            @if (!string.IsNullOrEmpty(vendor?.Address))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@vendor.Address</MudText>
+            }
+        </div>
+        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">
+            Total: ₱@_vendorExpenses.Sum(e => e.Amount).ToString("N2")
+        </MudChip>
+    </MudStack>
+
+    <MudDivider Class="mb-4" />
+
+    <!-- Search -->
+    <div class="psd-wrap">
+        <MudTextField Value="@_searchString"
+                      ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                      Immediate="true"
+                      @onfocus="@(() => _focused = true)"
+                      @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                      Placeholder="Search transactions..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mt-2 mb-4" />
+        @if (_focused && !string.IsNullOrEmpty(_searchString) && _filtered.Any())
+        {
+            <div class="psd-list">
+                @foreach (var e in _filtered.Take(8))
+                {
+                    <div class="psd-item" @onmousedown="@(() => _searchString = e.Description)">
+                        <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" Style="color:#90A4AE;" />
+                        <span>@e.Description</span>
+                        <span class="psd-item-sub">₱@e.Amount.ToString("N2")</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Add button -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddExpense">
+            Add Expense
+        </MudButton>
+    </MudStack>
+
+    <!-- Table -->
+    @if (!_vendorExpenses.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-2">No expenses recorded for this vendor yet.</MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@_filtered" Hover="true" Bordered="true" Striped="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Date</MudTh>
+                <MudTh>Description</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh Style="text-align:right;">Amount</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Date">@context.ExpenseDate.ToShortDateString()</MudTd>
+                <MudTd DataLabel="Description">@context.Description</MudTd>
+                <MudTd DataLabel="Type">@context.ExpenseType</MudTd>
+                <MudTd DataLabel="Amount" Style="text-align:right;">₱@context.Amount.ToString("N2")</MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
+                                   Color="@(string.IsNullOrEmpty(context.ReceiptImage) ? Color.Default : Color.Success)"
+                                   Title="View Receipt"
+                                   OnClick="@(() => ViewReceipt(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                   Color="Color.Error"
+                                   OnClick="@(() => ExpenseService.Remove(context))" />
+                </MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTd colspan="3" Style="font-weight:700; text-align:right; padding-right:8px;">
+                    @_filtered.Count() item(s) total
+                </MudTd>
+                <MudTd Style="font-weight:700; text-align:right;">
+                    ₱@_filtered.Sum(e => e.Amount).ToString("N2")
+                </MudTd>
+                <MudTd />
+            </FooterContent>
+        </MudTable>
+    }
+
+</MudPaper>
+
+@code {
+    [Parameter] public int VendorId { get; set; }
+
+    private string _searchString = string.Empty;
+    private bool _focused;
+
+    private IEnumerable<Expense> _vendorExpenses =>
+        ExpenseService.Expenses.Where(e => e.VendorId == VendorId);
+
+    private IEnumerable<Expense> _filtered =>
+        _vendorExpenses.Where(e =>
+            string.IsNullOrWhiteSpace(_searchString) ||
+            e.Description.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            e.ExpenseType.ToString().Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+            e.Amount.ToString().Contains(_searchString) ||
+            e.ExpenseDate.ToShortDateString().Contains(_searchString));
+
+    private async Task AddExpense()
+    {
+        var parameters = new DialogParameters { ["PrefilledVendorId"] = VendorId };
+        var dialog = await DialogService.ShowAsync<AddExpenseDialog>("Add Expense", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is Expense expense)
+        {
+            ExpenseService.Add(expense);
+        }
+    }
+
+    private async Task ViewReceipt(Expense expense)
+    {
+        var parameters = new DialogParameters { ["ReceiptImage"] = expense.ReceiptImage };
+        await DialogService.ShowAsync<ViewReceiptDialog>($"Receipt — {expense.Description}", parameters);
+    }
+
+    private async Task GoBack()
+    {
+        await Task.Yield();
+        NavManager.NavigateTo("/vendors");
+    }
+}

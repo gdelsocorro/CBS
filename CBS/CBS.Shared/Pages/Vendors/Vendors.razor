@@ -1,0 +1,183 @@
+@page "/vendors"
+@using MudBlazor
+@using CBS.Domain.Models
+@using CBS.Shared.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Vendors</MudText>
+
+    <!-- Search Bar with suggestions -->
+    <div class="psd-wrap">
+        <MudTextField Value="@_searchString"
+                      ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                      Immediate="true"
+                      @onfocus="@(() => _focused = true)"
+                      @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                      Placeholder="Search by name, date, address..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mt-4 mb-4" />
+        @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredVendors.Any())
+        {
+            <div class="psd-list">
+                @foreach (var v in _filteredVendors.Take(8))
+                {
+                    <div class="psd-item" @onmousedown="@(() => _searchString = v.Name)">
+                        <MudIcon Icon="@Icons.Material.Filled.LocalConvenienceStore" Size="Size.Small" Style="color:#90A4AE;" />
+                        <span>@v.Name</span>
+                        <span class="psd-item-sub">@v.Address</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Sort -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+        <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:150px;">
+            <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+            <MudSelectItem Value="@("name")">Name</MudSelectItem>
+            <MudSelectItem Value="@("date")">Date Added</MudSelectItem>
+        </MudSelect>
+        <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                       Size="Size.Small" Title="@(_sortDesc ? "Descending" : "Ascending")"
+                       OnClick="@(() => _sortDesc = !_sortDesc)" />
+    </MudStack>
+
+    <!-- Action Buttons -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddVendorDialog">Add Vendor</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="OpenManageVendorsDialog">Manage Vendors</MudButton>
+    </MudStack>
+
+    <!-- Vendors Table -->
+    <MudTable Items="_filteredVendors" Hover="true" Bordered="true" Striped="true"
+              RowsPerPage="50">
+        <HeaderContent>
+            <MudTh>ID</MudTh>
+            <MudTh>Name</MudTh>
+            <MudTh>Date Added</MudTh>
+            <MudTh>Address</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Id</MudTd>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.DateAdded?.ToShortDateString()</MudTd>
+            <MudTd>@context.Address</MudTd>
+            <MudTd>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => OpenTransactions(context))">
+                    Transaction Lists
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[]{25, 50, 100}" />
+        </PagerContent>
+    </MudTable>
+
+    <!-- Export & Upload -->
+    <MudStack Row="true" Class="mt-4" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">Export CSV</MudButton>
+        <InputFile id="vendorCsvUpload" OnChange="ImportCsv" accept=".csv" style="display:none;" />
+        <MudButton HtmlTag="label" for="vendorCsvUpload" Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Upload">Upload CSV</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Inject] IDialogService DialogService { get; set; } = default!;
+    [Inject] VendorStateService VendorService { get; set; } = default!;
+    private string _searchString = string.Empty;
+    private bool _focused;
+
+    private IReadOnlyList<Vendor> VendorList => VendorService.Vendors;
+
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<Vendor> _filteredVendors => SortVendors(
+        VendorList.Where(v =>
+            string.IsNullOrWhiteSpace(_searchString)
+            || v.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || (v.DateAdded.HasValue && v.DateAdded.Value.ToShortDateString().Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(v.Address) && v.Address.Contains(_searchString, StringComparison.OrdinalIgnoreCase))));
+
+    private IEnumerable<Vendor> SortVendors(IEnumerable<Vendor> src) => (_sortBy, _sortDesc) switch
+    {
+        ("name", true)  => src.OrderByDescending(v => v.Name),
+        ("name", false) => src.OrderBy(v => v.Name),
+        ("date", true)  => src.OrderByDescending(v => v.DateAdded),
+        ("date", false) => src.OrderBy(v => v.DateAdded),
+        (_, true)       => src.OrderByDescending(v => v.Id),
+        _               => src.OrderBy(v => v.Id),
+    };
+
+    private static readonly DialogOptions _addOpts  = new() { MaxWidth = MaxWidth.Small,  FullWidth = true, CloseButton = true };
+    private static readonly DialogOptions _mngOpts  = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    private async Task OpenAddVendorDialog()
+    {
+        var dialog = await DialogService.ShowAsync<AddVendorDialog>("Add Vendor", _addOpts);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is Vendor newVendor)
+        {
+            newVendor.DateAdded = DateTime.Today;
+            VendorService.Add(newVendor);
+        }
+    }
+
+    private async Task OpenManageVendorsDialog()
+    {
+        await DialogService.ShowAsync<ManageVendorsDialog>("Manage Vendors", _mngOpts);
+    }
+
+    private async Task ExportCsv()
+    {
+        var csv = CsvHelper.Build(
+            new[] { "Id", "Name", "Address", "DateAdded" },
+            _filteredVendors.Select(v => new[]
+            {
+                v.Id.ToString(), v.Name, v.Address,
+                v.DateAdded?.ToString("yyyy-MM-dd") ?? ""
+            }));
+        await JS.InvokeVoidAsync("cbsDownloadCsv", $"vendors_{DateTime.Today:yyyyMMdd}.csv", csv);
+    }
+
+    private async Task ImportCsv(InputFileChangeEventArgs e)
+    {
+        using var reader = new System.IO.StreamReader(e.File.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024));
+        var content = await reader.ReadToEndAsync();
+        var rows = CsvHelper.Parse(content);
+        int added = 0;
+        foreach (var row in rows)
+        {
+            if (!row.TryGetValue("Name", out var name) || string.IsNullOrWhiteSpace(name)) continue;
+            row.TryGetValue("Address", out var address);
+            row.TryGetValue("DateAdded", out var dateStr);
+            VendorService.Add(new Vendor
+            {
+                Name      = name.Trim(),
+                Address   = address?.Trim() ?? "",
+                DateAdded = DateTime.TryParse(dateStr, out var d) ? d : DateTime.Today
+            });
+            added++;
+        }
+        Snackbar.Add($"Imported {added} vendor{(added == 1 ? "" : "s")}.", added > 0 ? Severity.Success : Severity.Warning);
+    }
+
+    private async Task OpenTransactions(Vendor vendor)
+    {
+        var parameters = new DialogParameters
+        {
+            ["VendorId"] = vendor.Id,
+            ["Vendor"]   = vendor
+        };
+        await DialogService.ShowAsync<VendorTransactionsDialog>(vendor.Name, parameters);
+    }
+}

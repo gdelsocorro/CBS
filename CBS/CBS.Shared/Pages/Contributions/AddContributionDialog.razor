@@ -1,0 +1,234 @@
+@using CBS.Shared.ViewModels
+@inject CBS.Shared.Services.MemberStateService MemberService
+@inject CBS.Shared.Services.ContributionStateService ContributionService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.FrontHand" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Record Contribution</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <div @onkeydown="OnDialogKeyDown">
+        <MudGrid Spacing="3" Class="mt-1">
+
+            <!-- Member search -->
+            <MudItem xs="12">
+                <div class="psd-wrap">
+                    <MudTextField Value="@_memberSearch"
+                                  ValueChanged="@((string v) => OnMemberSearch(v))"
+                                  Immediate="true"
+                                  @onfocus="@(() => _memberFocused = true)"
+                                  @onblur="@(async () => { await Task.Delay(160); _memberFocused = false; StateHasChanged(); })"
+                                  @onkeydown="OnMemberKeyDown"
+                                  Label="Member"
+                                  Placeholder="Type to search member..."
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Person"
+                                  AdornmentColor="@(_selectedMember is not null ? Color.Success : (_showAddMember ? Color.Warning : Color.Default))"
+                                  HelperText="@MemberHelperText" />
+
+                    @if (_memberFocused && _memberResults.Any())
+                    {
+                        <div class="psd-list">
+                            @for (int i = 0; i < _memberResults.Count; i++)
+                            {
+                                var m = _memberResults[i];
+                                var top = i == 0;
+                                <div class="psd-item @(top ? "psd-item-top" : "")" @onmousedown="@(() => SelectMember(m))">
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-size:13px; font-weight:@(top ? "600" : "400");">@m.FirstName @m.LastName</div>
+                                        <div style="font-size:11px; color:#90A4AE;">@m.Area · @(m.IsActive ? "Active" : "Inactive")</div>
+                                    </div>
+                                    @if (top)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                 Style="font-size:10px; height:18px;">Top</MudChip>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (_showAddMember)
+                {
+                    <div class="add-inline-panel mt-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.body2"><b>"@_memberSearch"</b> not found — fill in details to create:</MudText>
+                        </MudStack>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Value="@_newMember.FirstName"
+                                              ValueChanged="@((string v) => { _newMember.FirstName = v ?? string.Empty; _memberSearch = _newMember.FullName; })"
+                                              Label="First Name"
+                                              Variant="Variant.Outlined" Dense="true" Immediate="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Value="@_newMember.LastName"
+                                              ValueChanged="@((string v) => { _newMember.LastName = v ?? string.Empty; _memberSearch = _newMember.FullName; })"
+                                              Label="Last Name"
+                                              Variant="Variant.Outlined" Dense="true" Immediate="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect T="CBS.Domain.Enums.Areas" Label="Area" @bind-Value="_newMember.Area"
+                                           Variant="Variant.Outlined" Dense="true">
+                                    @foreach (var area in Enum.GetValues<CBS.Domain.Enums.Areas>())
+                                    {
+                                        <MudSelectItem Value="@area">@area.ToString()</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Value="@_newMember.Email"
+                                              ValueChanged="@((string v) => _newMember.Email = v ?? string.Empty)"
+                                              Label="Email"
+                                              InputType="InputType.Email"
+                                              Variant="Variant.Outlined" Dense="true" Immediate="true" />
+                            </MudItem>
+                        </MudGrid>
+                    </div>
+                }
+            </MudItem>
+
+            <!-- Date & Fund Type -->
+            <MudItem xs="12" sm="6">
+                <MudDatePicker Label="Contribution Date" @bind-Date="_vm.Date" Required="true" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="CBS.Domain.Enums.FundTypes" Label="Fund Type" @bind-Value="_vm.ContributionType"
+                           Required="true" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.Offering">Offering</MudSelectItem>
+                    <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.Tithe">Tithe</MudSelectItem>
+                    <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.Donation">Donation</MudSelectItem>
+                    <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.OtherIncome">Other Income</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <!-- Amount -->
+            <MudItem xs="12">
+                <MudNumericField Label="Amount (₱)" @bind-Value="_vm.Amount" Required="true"
+                                 Variant="Variant.Outlined" Immediate="true"
+                                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Payments" />
+            </MudItem>
+
+        </MudGrid>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" StartIcon="@Icons.Material.Filled.Close">Close</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save"
+                   Disabled="@(!CanSave)"
+                   StartIcon="@Icons.Material.Filled.Add">Add</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .add-inline-panel {
+        border: 1px dashed var(--mud-palette-warning);
+        border-radius: 6px;
+        padding: 12px;
+        background: rgba(255, 152, 0, 0.06);
+    }
+    .psd-item-top {
+        background: rgba(30, 136, 229, 0.06);
+    }
+</style>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    // Form state
+    private ContributionViewModel _vm = new();
+
+    // Member search
+    private string _memberSearch = string.Empty;
+    private bool _memberFocused;
+    private CBS.Domain.Models.Member? _selectedMember;
+    private List<CBS.Domain.Models.Member> _memberResults = new();
+    private bool _showAddMember;
+    private MemberViewModel _newMember = new();
+
+    private bool CanSave =>
+        (_selectedMember is not null || (_showAddMember && !string.IsNullOrWhiteSpace(_newMember.FirstName))) &&
+        _vm.Amount > 0;
+
+    private string MemberHelperText =>
+        _selectedMember is not null
+            ? $"ID {_selectedMember.Id} · {_selectedMember.Area} · {(_selectedMember.IsActive ? "Active" : "Inactive")}"
+            : _showAddMember ? "New member will be created and linked"
+            : "No member selected";
+
+    private void OnMemberSearch(string value)
+    {
+        _memberSearch  = value ?? string.Empty;
+        _selectedMember = null;
+        _memberResults = string.IsNullOrWhiteSpace(value)
+            ? new()
+            : MemberService.Members
+                .Where(m => $"{m.FirstName} {m.LastName}".Contains(value, StringComparison.OrdinalIgnoreCase))
+                .Take(8).ToList();
+        _showAddMember = _memberSearch.Length >= 2 && _memberResults.Count == 0;
+        if (_showAddMember)
+        {
+            var parts = _memberSearch.Trim().Split(' ', 2);
+            _newMember = new MemberViewModel
+            {
+                FirstName = parts[0],
+                LastName  = parts.Length > 1 ? parts[1] : string.Empty
+            };
+        }
+    }
+
+    private void OnDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && CanSave && _memberResults.Count == 0)
+            Save();
+    }
+
+    private void OnMemberKeyDown(KeyboardEventArgs e)
+    {
+        if ((e.Key == "Enter" || e.Key == "Tab") && _memberResults.Count > 0)
+            SelectMember(_memberResults[0]);
+    }
+
+    private void SelectMember(CBS.Domain.Models.Member m)
+    {
+        _selectedMember = m;
+        _memberSearch   = $"{m.FirstName} {m.LastName}";
+        _memberResults.Clear();
+        _memberFocused  = false;
+        _showAddMember  = false;
+    }
+
+    private void Save()
+    {
+        if (!CanSave) return;
+
+        if (_selectedMember is null && _showAddMember)
+        {
+            var created = _newMember.ToNew();
+            MemberService.Add(created);
+            _selectedMember = created;
+        }
+
+        _vm.MemberId = _selectedMember!.Id;
+        ContributionService.Add(_vm.ToNew());
+
+        Snackbar.Add($"Added ₱{_vm.Amount:N2} {_vm.ContributionType} for {_memberSearch}", Severity.Success);
+
+        // Reset member + amount, keep date and fund type
+        _memberSearch   = string.Empty;
+        _selectedMember = null;
+        _showAddMember  = false;
+        _newMember      = new();
+        _vm = new ContributionViewModel { Date = _vm.Date, ContributionType = _vm.ContributionType };
+    }
+
+    private void Close() => MudDialog.Cancel();
+}

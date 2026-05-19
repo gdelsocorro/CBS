@@ -1,0 +1,216 @@
+@page "/expenses"
+@using MudBlazor
+@using CBS.Domain.Models
+@using CBS.Domain.Enums
+@using CBS.Shared.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject VendorStateService VendorService
+@inject ExpenseStateService ExpenseService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Expenses</MudText>
+
+    <!-- Search Bar with suggestions -->
+    <div class="psd-wrap">
+        <MudTextField Value="@_searchString"
+                      ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                      Immediate="true"
+                      @onfocus="@(() => _focused = true)"
+                      @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                      Placeholder="Search by vendor, description, type..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mt-4 mb-4" />
+        @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredExpenses.Any())
+        {
+            <div class="psd-list">
+                @foreach (var e in _filteredExpenses.Take(8))
+                {
+                    <div class="psd-item" @onmousedown="@(() => _searchString = e.Description)">
+                        <MudIcon Icon="@Icons.Material.Filled.Wallet" Size="Size.Small" Style="color:#90A4AE;" />
+                        <span>@e.Description</span>
+                        <span class="psd-item-sub">@VendorService.GetName(e.VendorId) · ₱@e.Amount.ToString("N2")</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Filter Dropdown -->
+    <MudSelect T="string" Label="Filter by Type" @bind-Value="_selectedFilter" Class="mb-4" Dense="true">
+        <MudSelectItem Value="@("All")">All</MudSelectItem>
+        @foreach (var type in Enum.GetValues<ExpenseTypes>())
+        {
+            <MudSelectItem Value="@type.ToString()">@type.GetDisplayName()</MudSelectItem>
+        }
+    </MudSelect>
+
+    <!-- Sort -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+        <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:150px;">
+            <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+            <MudSelectItem Value="@("date")">Date</MudSelectItem>
+            <MudSelectItem Value="@("amount")">Amount</MudSelectItem>
+            <MudSelectItem Value="@("vendor")">Vendor</MudSelectItem>
+            <MudSelectItem Value="@("type")">Type</MudSelectItem>
+        </MudSelect>
+        <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                       Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+    </MudStack>
+
+    <!-- Action Buttons -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddExpenseDialog">Add Expense</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="OpenManageExpensesDialog">Manage Expenses</MudButton>
+    </MudStack>
+
+    <!-- Expenses Table -->
+    <MudTable Items="_filteredExpenses" Hover="true" Bordered="true" Striped="true"
+              RowsPerPage="50">
+        <HeaderContent>
+            <MudTh>ID</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Vendor</MudTh>
+            <MudTh>Description</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Amount</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="ID">@context.Id</MudTd>
+            <MudTd DataLabel="Date">@context.ExpenseDate.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Vendor">@VendorService.GetName(context.VendorId)</MudTd>
+            <MudTd DataLabel="Description">@context.Description</MudTd>
+            <MudTd DataLabel="Type">@context.ExpenseType.GetDisplayName()</MudTd>
+            <MudTd DataLabel="Amount">@context.Amount.ToString("C")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
+                               Color="@(string.IsNullOrEmpty(context.ReceiptImage) ? Color.Default : Color.Success)"
+                               Title="View Receipt"
+                               OnClick="@(() => OpenViewReceiptDialog(context))" />
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[]{25, 50, 100}" />
+        </PagerContent>
+    </MudTable>
+
+    <!-- Export & Upload -->
+    <MudStack Row="true" Class="mt-4" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">Export CSV</MudButton>
+        <InputFile id="expenseCsvUpload" OnChange="ImportCsv" accept=".csv" style="display:none;" />
+        <MudButton HtmlTag="label" for="expenseCsvUpload" Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Upload">Upload CSV</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Inject] IDialogService DialogService { get; set; } = default!;
+    private string _searchString = string.Empty;
+    private bool _focused;
+    private string _selectedFilter = "All";
+
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<Expense> _filteredExpenses => SortExpenses(
+        ExpenseService.Expenses.Where(e =>
+            (string.IsNullOrWhiteSpace(_searchString)
+                || VendorService.GetName(e.VendorId).Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+                || e.Description.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+                || e.ExpenseType.GetDisplayName().Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+                || e.ExpenseDate.ToShortDateString().Contains(_searchString)) &&
+            (_selectedFilter == "All" || e.ExpenseType.ToString().Equals(_selectedFilter, StringComparison.OrdinalIgnoreCase))));
+
+    private IEnumerable<Expense> SortExpenses(IEnumerable<Expense> src) => (_sortBy, _sortDesc) switch
+    {
+        ("date",   true)  => src.OrderByDescending(e => e.ExpenseDate),
+        ("date",   false) => src.OrderBy(e => e.ExpenseDate),
+        ("amount", true)  => src.OrderByDescending(e => e.Amount),
+        ("amount", false) => src.OrderBy(e => e.Amount),
+        ("vendor", true)  => src.OrderByDescending(e => VendorService.GetName(e.VendorId)),
+        ("vendor", false) => src.OrderBy(e => VendorService.GetName(e.VendorId)),
+        ("type",   true)  => src.OrderByDescending(e => e.ExpenseType),
+        ("type",   false) => src.OrderBy(e => e.ExpenseType),
+        (_,        true)  => src.OrderByDescending(e => e.Id),
+        _                 => src.OrderBy(e => e.Id),
+    };
+
+    private async Task ExportCsv()
+    {
+        var csv = CsvHelper.Build(
+            new[] { "Id", "Date", "Vendor", "Description", "Type", "Amount" },
+            _filteredExpenses.Select(e => new[]
+            {
+                e.Id.ToString(),
+                e.ExpenseDate.ToString("yyyy-MM-dd"),
+                VendorService.GetName(e.VendorId),
+                e.Description,
+                e.ExpenseType.ToString(),
+                e.Amount.ToString("F2")
+            }));
+        await JS.InvokeVoidAsync("cbsDownloadCsv", $"expenses_{DateTime.Today:yyyyMMdd}.csv", csv);
+    }
+
+    private async Task ImportCsv(InputFileChangeEventArgs e)
+    {
+        using var reader = new System.IO.StreamReader(e.File.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024));
+        var content = await reader.ReadToEndAsync();
+        var rows = CsvHelper.Parse(content);
+        int added = 0, skipped = 0;
+        foreach (var row in rows)
+        {
+            if (!row.TryGetValue("VendorName", out var vendorName) || string.IsNullOrWhiteSpace(vendorName)) { skipped++; continue; }
+            if (!row.TryGetValue("Amount",     out var amtStr)  || !decimal.TryParse(amtStr,  out var amount))  { skipped++; continue; }
+            row.TryGetValue("Date",        out var dateStr);
+            row.TryGetValue("Description", out var desc);
+            row.TryGetValue("Type",        out var typeStr);
+            var vendor = VendorService.Vendors.FirstOrDefault(v => v.Name.Equals(vendorName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (vendor is null)
+            {
+                vendor = new Vendor { Name = vendorName.Trim(), Address = "", DateAdded = DateTime.Today };
+                VendorService.Add(vendor);
+            }
+            var expType = Enum.TryParse<ExpenseTypes>(typeStr, true, out var t) ? t : ExpenseTypes.OtherServices;
+            ExpenseService.Add(new Expense
+            {
+                VendorId    = vendor.Id,
+                ExpenseDate = DateTime.TryParse(dateStr, out var d) ? d : DateTime.Today,
+                Description = desc?.Trim() ?? vendorName.Trim(),
+                ExpenseType = expType,
+                Amount      = amount
+            });
+            added++;
+        }
+        var msg = skipped > 0 ? $"Imported {added}, skipped {skipped} (missing VendorName or Amount)." : $"Imported {added} expense{(added == 1 ? "" : "s")}.";
+        Snackbar.Add(msg, added > 0 ? Severity.Success : Severity.Warning);
+    }
+
+    private static readonly DialogOptions _addOpts = new() { MaxWidth = MaxWidth.Small,  FullWidth = true, CloseButton = true };
+    private static readonly DialogOptions _mngOpts = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    private async Task OpenAddExpenseDialog()
+    {
+        await DialogService.ShowAsync<AddExpenseDialog>("Add Expense", _addOpts);
+    }
+
+    private async Task OpenManageExpensesDialog()
+    {
+        await DialogService.ShowAsync<ManageExpensesDialog>("Manage Expenses", _mngOpts);
+    }
+
+    private async Task OpenEditExpenseDialog(Expense expense)
+    {
+        var parameters = new DialogParameters { ["Expense"] = expense };
+        await DialogService.ShowAsync<EditExpenseDialog>("Edit Expense", parameters);
+    }
+
+    private async Task OpenViewReceiptDialog(Expense expense)
+    {
+        var parameters = new DialogParameters { ["ReceiptImage"] = expense.ReceiptImage };
+        await DialogService.ShowAsync<ViewReceiptDialog>($"Receipt — {expense.Description}", parameters);
+    }
+}

@@ -1,0 +1,261 @@
+@using CBS.Shared.ViewModels
+@using Microsoft.AspNetCore.Components.Forms
+@inject CBS.Shared.Services.VendorStateService VendorService
+@inject CBS.Shared.Services.ExpenseStateService ExpenseService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Add Expense</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <div @onkeydown="OnDialogKeyDown">
+        <MudGrid Spacing="3" Class="mt-1">
+
+            <!-- Vendor search -->
+            <MudItem xs="12">
+                <div class="psd-wrap">
+                    <MudTextField Value="@_vendorSearch"
+                                  ValueChanged="@((string v) => OnVendorSearch(v))"
+                                  Immediate="true"
+                                  @onfocus="@(() => _vendorFocused = true)"
+                                  @onblur="@(async () => { await Task.Delay(160); _vendorFocused = false; StateHasChanged(); })"
+                                  @onkeydown="OnVendorKeyDown"
+                                  Label="Vendor"
+                                  Placeholder="Type to search vendor..."
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Store"
+                                  AdornmentColor="@(_selectedVendor is not null ? Color.Success : (_showAddVendor ? Color.Warning : Color.Default))"
+                                  HelperText="@VendorHelperText" />
+
+                    @if (_vendorFocused && _vendorResults.Any())
+                    {
+                        <div class="psd-list">
+                            @for (int i = 0; i < _vendorResults.Count; i++)
+                            {
+                                var v = _vendorResults[i];
+                                var top = i == 0;
+                                <div class="psd-item @(top ? "psd-item-top" : "")" @onmousedown="@(() => SelectVendor(v))">
+                                    <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Style="color:#90A4AE;" />
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-size:13px; font-weight:@(top ? "600" : "400");">@v.Name</div>
+                                        @if (!string.IsNullOrEmpty(v.Address))
+                                        {
+                                            <div style="font-size:11px; color:#90A4AE;">@v.Address</div>
+                                        }
+                                    </div>
+                                    @if (top)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary"
+                                                 Style="font-size:10px; height:18px;">Top</MudChip>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (_showAddVendor)
+                {
+                    <div class="add-inline-panel mt-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.AddBusiness" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.body2"><b>"@_vendorSearch"</b> not found — fill in details to create it:</MudText>
+                        </MudStack>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" sm="6">
+                                <MudTextField @bind-Value="_newVendor.Name" Label="Vendor Name"
+                                              Variant="Variant.Outlined" Dense="true" Immediate="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField @bind-Value="_newVendor.Address" Label="Address"
+                                              Variant="Variant.Outlined" Dense="true" Immediate="true" />
+                            </MudItem>
+                        </MudGrid>
+                    </div>
+                }
+            </MudItem>
+
+            <!-- Date & Type -->
+            <MudItem xs="12" sm="6">
+                <MudDatePicker Label="Expense Date" @bind-Date="_vm.Date" Required="true" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="CBS.Domain.Enums.ExpenseTypes" Label="Expense Type" @bind-Value="_vm.ExpenseType"
+                           Required="true" Variant="Variant.Outlined">
+                    @foreach (var type in Enum.GetValues<CBS.Domain.Enums.ExpenseTypes>())
+                    {
+                        <MudSelectItem Value="@type">@type.GetDisplayName()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <!-- Description & Amount -->
+            <MudItem xs="12">
+                <MudTextField Label="Description" @bind-Value="_vm.Description" Required="true"
+                              Variant="Variant.Outlined" Immediate="true"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Notes" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudNumericField Label="Amount (₱)" @bind-Value="_vm.Amount" Required="true"
+                                 Variant="Variant.Outlined" Immediate="true"
+                                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Payments" />
+            </MudItem>
+
+            <!-- Receipt -->
+            <MudItem xs="12">
+                <MudDivider Class="mb-3" />
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <InputFile id="expReceiptFile" OnChange="HandleFileChanged" accept="image/*" style="display:none;" />
+                    <MudButton HtmlTag="label" for="expReceiptFile" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Upload" Size="Size.Small">
+                        Attach Receipt
+                    </MudButton>
+                    @if (!string.IsNullOrEmpty(_vm.ReceiptImage))
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small"
+                                 Icon="@Icons.Material.Filled.CheckCircle" OnClose="@(() => _vm.ReceiptImage = null)">
+                            Attached
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-disabled);">Optional</MudText>
+                    }
+                </MudStack>
+                @if (!string.IsNullOrEmpty(_vm.ReceiptImage))
+                {
+                    <img src="@_vm.ReceiptImage" style="max-width:100%; max-height:140px; object-fit:contain; margin-top:8px; border-radius:6px;" />
+                }
+            </MudItem>
+        </MudGrid>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" StartIcon="@Icons.Material.Filled.Close">Close</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save"
+                   Disabled="@(!CanSave)"
+                   StartIcon="@Icons.Material.Filled.Add">Add Expense</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .add-inline-panel {
+        border: 1px dashed var(--mud-palette-warning);
+        border-radius: 6px;
+        padding: 12px;
+        background: rgba(255, 152, 0, 0.06);
+    }
+    .psd-item-top {
+        background: rgba(30, 136, 229, 0.06);
+    }
+</style>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int PrefilledVendorId { get; set; }
+
+    // Form state
+    private ExpenseViewModel _vm = new();
+
+    // Vendor search
+    private string _vendorSearch = string.Empty;
+    private bool _vendorFocused;
+    private CBS.Domain.Models.Vendor? _selectedVendor;
+    private List<CBS.Domain.Models.Vendor> _vendorResults = new();
+    private bool _showAddVendor;
+    private VendorViewModel _newVendor = new();
+
+    private bool CanSave =>
+        (_selectedVendor is not null || (_showAddVendor && !string.IsNullOrWhiteSpace(_newVendor.Name))) &&
+        !string.IsNullOrWhiteSpace(_vm.Description) &&
+        _vm.Amount > 0;
+
+    private string VendorHelperText =>
+        _selectedVendor is not null ? $"ID {_selectedVendor.Id} · {_selectedVendor.Address}" :
+        _showAddVendor ? "New vendor will be created and linked" :
+        "No vendor selected";
+
+    protected override void OnParametersSet()
+    {
+        if (PrefilledVendorId > 0)
+        {
+            var v = VendorService.Vendors.FirstOrDefault(x => x.Id == PrefilledVendorId);
+            if (v is not null) SelectVendor(v);
+        }
+    }
+
+    private void OnVendorSearch(string value)
+    {
+        _vendorSearch   = value ?? string.Empty;
+        _selectedVendor = null;
+        _vendorResults  = string.IsNullOrWhiteSpace(value)
+            ? new()
+            : VendorService.Vendors
+                .Where(v => v.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+                .Take(8).ToList();
+        _showAddVendor = _vendorSearch.Length >= 2 && _vendorResults.Count == 0;
+        if (_showAddVendor) _newVendor = new VendorViewModel { Name = _vendorSearch };
+    }
+
+    private void OnDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && CanSave && _vendorResults.Count == 0)
+            Save();
+    }
+
+    private void OnVendorKeyDown(KeyboardEventArgs e)
+    {
+        if ((e.Key == "Enter" || e.Key == "Tab") && _vendorResults.Count > 0)
+            SelectVendor(_vendorResults[0]);
+    }
+
+    private void SelectVendor(CBS.Domain.Models.Vendor v)
+    {
+        _selectedVendor = v;
+        _vendorSearch   = v.Name;
+        _vendorResults.Clear();
+        _vendorFocused  = false;
+        _showAddVendor  = false;
+    }
+
+    private async Task HandleFileChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _vm.ReceiptImage = $"data:{file.ContentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+    }
+
+    private void Save()
+    {
+        if (!CanSave) return;
+
+        if (_selectedVendor is null && _showAddVendor)
+        {
+            var created = _newVendor.ToNew();
+            VendorService.Add(created);
+            _selectedVendor = created;
+        }
+
+        _vm.VendorId = _selectedVendor!.Id;
+        ExpenseService.Add(_vm.ToNew());
+
+        Snackbar.Add($"Added ₱{_vm.Amount:N2} expense — {_vm.Description}", Severity.Success);
+
+        // Reset for next entry, keep date and type
+        _vendorSearch   = string.Empty;
+        _selectedVendor = null;
+        _showAddVendor  = false;
+        _newVendor      = new();
+        _vm = new ExpenseViewModel { Date = _vm.Date, ExpenseType = _vm.ExpenseType };
+    }
+
+    private void Close() => MudDialog.Cancel();
+}

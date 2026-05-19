@@ -1,0 +1,103 @@
+@using CBS.Shared.ViewModels
+@inject CBS.Shared.Services.MemberStateService MemberService
+
+<MudDialog>
+    <DialogContent>
+        <!-- Member name with search -->
+        <div class="psd-wrap mb-4">
+            <MudTextField Value="@_memberSearch"
+                          ValueChanged="@((string v) => OnMemberSearch(v))"
+                          Immediate="true"
+                          @onfocus="@(() => _memberFocused = true)"
+                          @onblur="@(async () => { await Task.Delay(160); _memberFocused = false; StateHasChanged(); })"
+                          @onkeydown="OnMemberKeyDown"
+                          Label="Member"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Person"
+                          AdornmentColor="Color.Success"
+                          HelperText="@(_selectedMember is null ? "" : $"ID {_selectedMember.Id} · {_selectedMember.Area}")" />
+
+            @if (_memberFocused && _memberResults.Any())
+            {
+                <div class="psd-list">
+                    @foreach (var m in _memberResults)
+                    {
+                        <div class="psd-item" @onmousedown="@(() => SelectMember(m))">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
+                            <span>@m.FirstName @m.LastName</span>
+                            <span class="psd-item-sub">@m.Area · @(m.IsActive ? "Active" : "Inactive")</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <MudDatePicker Label="Date" @bind-Date="_vm.Date" Required="true" Class="mb-2" />
+        <MudNumericField Label="Amount" @bind-Value="_vm.Amount" Required="true" Class="mb-2" />
+        <MudSelect T="CBS.Domain.Enums.FundTypes" Label="Fund Type" @bind-Value="_vm.ContributionType" Required="true">
+            <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.Offering">Offering</MudSelectItem>
+            <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.Tithe">Tithe</MudSelectItem>
+            <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.Donation">Donation</MudSelectItem>
+            <MudSelectItem Value="@CBS.Domain.Enums.FundTypes.OtherIncome">Other Income</MudSelectItem>
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CBS.Domain.Models.Fund Fund { get; set; } = default!;
+
+    private ContributionViewModel _vm = new();
+    private string _memberSearch = string.Empty;
+    private bool _memberFocused;
+    private CBS.Domain.Models.Member? _selectedMember;
+    private List<CBS.Domain.Models.Member> _memberResults = new();
+
+    protected override void OnParametersSet()
+    {
+        _vm = ContributionViewModel.From(Fund);
+        _selectedMember = MemberService.Members.FirstOrDefault(m => m.Id == Fund.MemberId);
+        _memberSearch = _selectedMember is null ? string.Empty : $"{_selectedMember.FirstName} {_selectedMember.LastName}";
+    }
+
+    private void OnMemberKeyDown(KeyboardEventArgs e)
+    {
+        if ((e.Key == "Enter" || e.Key == "Tab") && _memberResults.Count > 0)
+            SelectMember(_memberResults[0]);
+    }
+
+    private void OnMemberSearch(string value)
+    {
+        _memberSearch   = value ?? string.Empty;
+        _selectedMember = null;
+        _vm.MemberId    = 0;
+        _memberResults  = string.IsNullOrWhiteSpace(value)
+            ? new()
+            : MemberService.Members
+                .Where(m => $"{m.FirstName} {m.LastName}".Contains(value, StringComparison.OrdinalIgnoreCase))
+                .Take(8).ToList();
+    }
+
+    private void SelectMember(CBS.Domain.Models.Member m)
+    {
+        _selectedMember = m;
+        _memberSearch   = $"{m.FirstName} {m.LastName}";
+        _vm.MemberId    = m.Id;
+        _memberResults.Clear();
+        _memberFocused  = false;
+    }
+
+    void Save()
+    {
+        if (_selectedMember is not null) _vm.MemberId = _selectedMember.Id;
+        _vm.ApplyTo(Fund);
+        MudDialog.Close(DialogResult.Ok(Fund));
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

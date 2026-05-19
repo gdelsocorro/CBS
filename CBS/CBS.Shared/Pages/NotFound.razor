@@ -1,0 +1,26 @@
+﻿@page "/404"
+@page "/not-found"
+
+<PageTitle>404 - Not Found</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-10">
+    <MudPaper Elevation="4" Class="pa-8 text-center">
+        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Error" Style="font-size: 5rem;" />
+
+        <MudText Typo="Typo.h3" Color="Color.Error" Class="mb-4">Oops! Page Not Found</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-6">
+            The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+        </MudText>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Home"
+                   Href="/">
+            Back to Home
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+}

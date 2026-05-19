@@ -1,0 +1,9 @@
+﻿@page "/dashboard"
+@inject NavigationManager NavManager
+
+@code {
+    protected override void OnInitialized()
+    {
+        NavManager.NavigateTo("/financial-report", replace: true);
+    }
+}

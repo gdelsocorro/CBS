@@ -1,0 +1,118 @@
+@inject IDialogService DialogService
+@inject CBS.Shared.Services.VendorStateService VendorService
+
+<MudDialog Style="width:780px; max-width:100%;">
+    <DialogContent>
+        <div style="height:62vh; display:flex; flex-direction:column; gap:8px;">
+
+            <!-- Search -->
+            <div class="psd-wrap" style="flex-shrink:0;">
+                <MudTextField Value="@_searchString"
+                              ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                              Immediate="true"
+                              @onfocus="@(() => _focused = true)"
+                              @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                              Placeholder="Search vendors..."
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Margin="Margin.Dense" />
+                @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredVendors.Any())
+                {
+                    <div class="psd-list">
+                        @foreach (var v in _filteredVendors.Take(8))
+                        {
+                            <div class="psd-item" @onmousedown="@(() => _searchString = v.Name)">
+                                <MudIcon Icon="@Icons.Material.Filled.LocalConvenienceStore" Size="Size.Small" Style="color:#90A4AE;" />
+                                <span>@v.Name</span>
+                                @if (!string.IsNullOrEmpty(v.Address))
+                                {
+                                    <span class="psd-item-sub">@v.Address</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Sort -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink:0;">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+                <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:140px;">
+                    <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+                    <MudSelectItem Value="@("name")">Name</MudSelectItem>
+                    <MudSelectItem Value="@("date")">Date Added</MudSelectItem>
+                </MudSelect>
+                <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                               Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+            </MudStack>
+
+            <!-- Table -->
+            <div style="overflow-y:auto; flex:1;">
+                <MudTable Items="_sortedVendors" Hover="true" Bordered="true" Striped="true"
+                          RowsPerPage="25" Style="min-width:100%;">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Date Added</MudTh>
+                        <MudTh>Address</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Id</MudTd>
+                        <MudTd>@context.Name</MudTd>
+                        <MudTd>@context.DateAdded?.ToShortDateString()</MudTd>
+                        <MudTd>@context.Address</MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                       OnClick="@(() => OpenEditVendorDialog(context))">Edit</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => VendorService.Remove(context))">Delete</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _searchString = string.Empty;
+    private bool   _focused;
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<CBS.Domain.Models.Vendor> _filteredVendors =>
+        VendorService.Vendors.Where(v =>
+            string.IsNullOrWhiteSpace(_searchString)
+            || v.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrEmpty(v.Address) && v.Address.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+        );
+
+    private IEnumerable<CBS.Domain.Models.Vendor> _sortedVendors => (_sortBy, _sortDesc) switch
+    {
+        ("name", true)  => _filteredVendors.OrderByDescending(v => v.Name),
+        ("name", false) => _filteredVendors.OrderBy(v => v.Name),
+        ("date", true)  => _filteredVendors.OrderByDescending(v => v.DateAdded),
+        ("date", false) => _filteredVendors.OrderBy(v => v.DateAdded),
+        (_,      true)  => _filteredVendors.OrderByDescending(v => v.Id),
+        _               => _filteredVendors.OrderBy(v => v.Id),
+    };
+
+    private async Task OpenEditVendorDialog(CBS.Domain.Models.Vendor vendor)
+    {
+        var parameters = new DialogParameters { ["Vendor"] = vendor };
+        var dialog = await DialogService.ShowAsync<EditVendorDialog>("Edit Vendor", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled) VendorService.Update(vendor);
+    }
+
+    void Close() => MudDialog.Cancel();
+}

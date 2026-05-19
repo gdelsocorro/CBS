@@ -1,0 +1,191 @@
+@page "/contributions"
+@using MudBlazor
+@using CBS.Domain.Models
+@using CBS.Domain.Enums
+@using CBS.Shared.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject ContributionStateService ContributionService
+@inject MemberStateService MemberService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Contributions</MudText>
+
+    <!-- Search Bar with suggestions -->
+    <div class="psd-wrap">
+        <MudTextField Value="@_searchString"
+                      ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                      Immediate="true"
+                      @onfocus="@(() => _focused = true)"
+                      @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                      Placeholder="Search by member name, fund type, amount..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mt-4 mb-4" />
+        @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredContributions.Any())
+        {
+            <div class="psd-list">
+                @foreach (var c in _filteredContributions.Take(8))
+                {
+                    var memberName = MemberService.GetFullName(c.MemberId);
+                    <div class="psd-item" @onmousedown="@(() => _searchString = memberName)">
+                        <MudIcon Icon="@Icons.Material.Filled.FrontHand" Size="Size.Small" Style="color:#90A4AE;" />
+                        <span>@memberName</span>
+                        <span class="psd-item-sub">@c.ContributionType · ₱@c.Amount.ToString("N2")</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Filter Dropdown -->
+    <MudSelect T="string" Label="Filter by Fund" @bind-Value="_selectedFilter" Class="mb-4" Dense="true">
+        <MudSelectItem Value="@("All")">All</MudSelectItem>
+        <MudSelectItem Value="@("Offering")">Offering</MudSelectItem>
+        <MudSelectItem Value="@("Tithe")">Tithe</MudSelectItem>
+        <MudSelectItem Value="@("Donation")">Donation</MudSelectItem>
+        <MudSelectItem Value="@("OtherIncome")">Other Income</MudSelectItem>
+    </MudSelect>
+
+    <!-- Sort -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+        <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:150px;">
+            <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+            <MudSelectItem Value="@("date")">Date</MudSelectItem>
+            <MudSelectItem Value="@("amount")">Amount</MudSelectItem>
+            <MudSelectItem Value="@("member")">Member</MudSelectItem>
+            <MudSelectItem Value="@("type")">Fund Type</MudSelectItem>
+        </MudSelect>
+        <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                       Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+    </MudStack>
+
+    <!-- Action Buttons -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddContributionDialog">Record Contribution</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="OpenManageContributionsDialog">Manage Contributions</MudButton>
+    </MudStack>
+
+    <!-- Contributions Table -->
+    <MudTable Items="_filteredContributions" Hover="true" Bordered="true" Striped="true"
+              RowsPerPage="50">
+        <HeaderContent>
+            <MudTh>ID</MudTh>
+            <MudTh>Member</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Amount</MudTh>
+            <MudTh>Fund Type</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="ID">@context.Id</MudTd>
+            <MudTd DataLabel="Member">@MemberService.GetFullName(context.MemberId)</MudTd>
+            <MudTd DataLabel="Date">@context.ContributionDate.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Amount">@context.Amount.ToString("C")</MudTd>
+            <MudTd DataLabel="Fund Type">@context.ContributionType.GetDisplayName()</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[]{25, 50, 100}" />
+        </PagerContent>
+    </MudTable>
+
+    <!-- Export & Upload -->
+    <MudStack Row="true" Class="mt-4" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">Export CSV</MudButton>
+        <InputFile id="contribCsvUpload" OnChange="ImportCsv" accept=".csv" style="display:none;" />
+        <MudButton HtmlTag="label" for="contribCsvUpload" Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Upload">Upload CSV</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Inject] IDialogService DialogService { get; set; } = default!;
+    private string _searchString = string.Empty;
+    private bool _focused;
+    private string _selectedFilter = "All";
+
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<Fund> _filteredContributions => SortFunds(
+        ContributionService.Contributions.Where(c =>
+            (string.IsNullOrWhiteSpace(_searchString)
+                || MemberService.GetFullName(c.MemberId).Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+                || c.ContributionDate.ToShortDateString().Contains(_searchString)
+                || c.Amount.ToString().Contains(_searchString)) &&
+            (_selectedFilter == "All" || c.ContributionType.ToString().Equals(_selectedFilter, StringComparison.OrdinalIgnoreCase))));
+
+    private IEnumerable<Fund> SortFunds(IEnumerable<Fund> src) => (_sortBy, _sortDesc) switch
+    {
+        ("date",   true)  => src.OrderByDescending(c => c.ContributionDate),
+        ("date",   false) => src.OrderBy(c => c.ContributionDate),
+        ("amount", true)  => src.OrderByDescending(c => c.Amount),
+        ("amount", false) => src.OrderBy(c => c.Amount),
+        ("member", true)  => src.OrderByDescending(c => MemberService.GetFullName(c.MemberId)),
+        ("member", false) => src.OrderBy(c => MemberService.GetFullName(c.MemberId)),
+        ("type",   true)  => src.OrderByDescending(c => c.ContributionType),
+        ("type",   false) => src.OrderBy(c => c.ContributionType),
+        (_,        true)  => src.OrderByDescending(c => c.Id),
+        _                 => src.OrderBy(c => c.Id),
+    };
+
+    private async Task ExportCsv()
+    {
+        var csv = CsvHelper.Build(
+            new[] { "Id", "Member", "Date", "Amount", "FundType" },
+            _filteredContributions.Select(c => new[]
+            {
+                c.Id.ToString(),
+                MemberService.GetFullName(c.MemberId),
+                c.ContributionDate.ToString("yyyy-MM-dd"),
+                c.Amount.ToString("F2"),
+                c.ContributionType.ToString()
+            }));
+        await JS.InvokeVoidAsync("cbsDownloadCsv", $"contributions_{DateTime.Today:yyyyMMdd}.csv", csv);
+    }
+
+    private async Task ImportCsv(InputFileChangeEventArgs e)
+    {
+        using var reader = new System.IO.StreamReader(e.File.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024));
+        var content = await reader.ReadToEndAsync();
+        var rows = CsvHelper.Parse(content);
+        int added = 0, skipped = 0;
+        foreach (var row in rows)
+        {
+            if (!row.TryGetValue("MemberName", out var memberName) || string.IsNullOrWhiteSpace(memberName)) { skipped++; continue; }
+            if (!row.TryGetValue("Amount",     out var amtStr)    || !decimal.TryParse(amtStr, out var amount)) { skipped++; continue; }
+            row.TryGetValue("Date",     out var dateStr);
+            row.TryGetValue("FundType", out var typeStr);
+            var member = MemberService.Members.FirstOrDefault(m =>
+                $"{m.FirstName} {m.LastName}".Equals(memberName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (member is null) { skipped++; continue; }
+            var fundType = Enum.TryParse<FundTypes>(typeStr, true, out var ft) ? ft : FundTypes.Offering;
+            var date     = DateTime.TryParse(dateStr, out var d) ? d : DateTime.Today;
+            ContributionService.Add(new Fund
+            {
+                MemberId         = member.Id,
+                ContributionDate = date,
+                Amount           = amount,
+                ContributionType = fundType,
+                Month            = (Months)date.Month
+            });
+            added++;
+        }
+        var msg = skipped > 0 ? $"Imported {added}, skipped {skipped} (member not found or missing Amount)." : $"Imported {added} contribution{(added == 1 ? "" : "s")}.";
+        Snackbar.Add(msg, added > 0 ? Severity.Success : Severity.Warning);
+    }
+
+    private static readonly DialogOptions _addOpts = new() { MaxWidth = MaxWidth.Small,  FullWidth = true, CloseButton = true };
+    private static readonly DialogOptions _mngOpts = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    private async Task OpenAddContributionDialog()
+    {
+        await DialogService.ShowAsync<AddContributionDialog>("Record Contribution", _addOpts);
+    }
+
+    private async Task OpenManageContributionsDialog()
+    {
+        await DialogService.ShowAsync<ManageContributionsDialog>("Manage Contributions", _mngOpts);
+    }
+}

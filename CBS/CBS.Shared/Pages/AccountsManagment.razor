@@ -1,0 +1,173 @@
+@page "/profile"
+@using MudBlazor
+@using CBS.Shared.Services
+@inject NotificationStateService NotifService
+
+<MudPaper Class="pa-4" Style="max-width:720px; margin:auto;">
+    <MudText Typo="Typo.h4" Class="mb-6">Account Settings</MudText>
+
+    <!-- Profile -->
+    <MudText Typo="Typo.h6" Class="mb-2">Profile</MudText>
+    <MudDivider Class="mb-4" />
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_firstName" Label="First Name" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_lastName" Label="Last Name" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_username" Label="Username" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_phone" Label="Phone Number" Variant="Variant.Outlined" />
+        </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SaveProfile">
+        Save Profile
+    </MudButton>
+
+    <!-- Security -->
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Security</MudText>
+    <MudDivider Class="mb-4" />
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_currentPassword" Label="Current Password"
+                          InputType="InputType.Password" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_newPassword" Label="New Password"
+                          InputType="InputType.Password" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_confirmPassword" Label="Confirm New Password"
+                          InputType="InputType.Password" Variant="Variant.Outlined" />
+        </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="mt-3" OnClick="ChangePassword">
+        Change Password
+    </MudButton>
+
+    <!-- Church Information -->
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Church Information</MudText>
+    <MudDivider Class="mb-4" />
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_churchName" Label="Church Name" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_churchArea" Label="Area / District" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_treasurerName" Label="Treasurer Name" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_churchAddress" Label="Church Address" Variant="Variant.Outlined" Lines="2" />
+        </MudItem>
+    </MudGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SaveChurchInfo">
+        Save Church Info
+    </MudButton>
+
+    <!-- Data Management -->
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Data Management</MudText>
+    <MudDivider Class="mb-4" />
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Download" OnClick="ExportData">
+            Export All Data
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Upload" OnClick="ImportData">
+            Import Data
+        </MudButton>
+    </MudStack>
+
+    <!-- Danger Zone -->
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2" Style="color:#d32f2f;">Danger Zone</MudText>
+    <MudDivider Class="mb-4" />
+    <MudButton Variant="Variant.Outlined" Color="Color.Error"
+               StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">
+        Sign Out
+    </MudButton>
+</MudPaper>
+
+@code {
+    [Inject] NavigationManager NavManager { get; set; } = default!;
+
+    private string _firstName      = "Admin";
+    private string _lastName       = string.Empty;
+    private string _username       = "admin";
+    private string _email          = string.Empty;
+    private string _phone          = string.Empty;
+
+    private string _currentPassword = string.Empty;
+    private string _newPassword     = string.Empty;
+    private string _confirmPassword = string.Empty;
+
+    private string _churchName     = "LAMI Church";
+    private string _churchArea     = string.Empty;
+    private string _treasurerName  = string.Empty;
+    private string _churchAddress  = string.Empty;
+
+    private void SaveProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_username))
+        {
+            NotifService.Push("Validation Error", "First name and username are required.", AppNotificationSeverity.Warning);
+            return;
+        }
+        NotifService.Push("Profile Saved", "Your profile has been updated successfully.", AppNotificationSeverity.Success);
+    }
+
+    private void ChangePassword()
+    {
+        if (_currentPassword != "admin")
+        {
+            NotifService.Push("Incorrect Password", "Current password is incorrect.", AppNotificationSeverity.Error);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < 6)
+        {
+            NotifService.Push("Weak Password", "New password must be at least 6 characters.", AppNotificationSeverity.Warning);
+            return;
+        }
+        if (_newPassword != _confirmPassword)
+        {
+            NotifService.Push("Password Mismatch", "New password and confirmation do not match.", AppNotificationSeverity.Warning);
+            return;
+        }
+        _currentPassword = string.Empty;
+        _newPassword     = string.Empty;
+        _confirmPassword = string.Empty;
+        NotifService.Push("Password Changed", "Your password has been updated successfully.", AppNotificationSeverity.Success);
+    }
+
+    private void SaveChurchInfo()
+    {
+        if (string.IsNullOrWhiteSpace(_churchName))
+        {
+            NotifService.Push("Validation Error", "Church name is required.", AppNotificationSeverity.Warning);
+            return;
+        }
+        NotifService.Push("Church Info Saved", "Church information has been updated.", AppNotificationSeverity.Success);
+    }
+
+    private void ExportData()
+    {
+        NotifService.Push("Export Started", "Preparing data export — this may take a moment.", AppNotificationSeverity.Info);
+    }
+
+    private void ImportData()
+    {
+        NotifService.Push("Import", "Import functionality coming soon.", AppNotificationSeverity.Info);
+    }
+
+    private void SignOut()
+    {
+        NavManager.NavigateTo("/login", forceLoad: true);
+    }
+}

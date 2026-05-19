@@ -1,0 +1,47 @@
+<MudNavMenu Class="px-4">
+    <div class="py-4 px-0"></div>
+
+    <MudNavLink Href="/financial-report" Icon="@Icons.Material.Filled.Assessment"
+                Match="NavLinkMatch.All" Class="menu-item">
+        Financial Report
+    </MudNavLink>
+
+    <div class="py-1 px-3">
+        <MudText Typo="Typo.h6" Color="Color.Primary">Records</MudText>
+    </div>
+
+    <MudNavLink Href="/contributions" Icon="@Icons.Material.Filled.FrontHand"
+                Match="NavLinkMatch.All" Class="menu-item">
+        Contributions
+    </MudNavLink>
+
+    <MudNavLink Href="/vendors" Icon="@Icons.Material.Filled.LocalConvenienceStore"
+                Match="NavLinkMatch.All" Class="menu-item">
+        Vendors
+    </MudNavLink>
+
+    <MudNavLink Href="/expenses" Icon="@Icons.Material.Filled.Wallet"
+                Match="NavLinkMatch.All" Class="menu-item">
+        Expenses
+    </MudNavLink>
+
+    <MudNavLink Href="/members" Icon="@Icons.Material.Filled.CardMembership"
+                Match="NavLinkMatch.All" Class="menu-item">
+        Members
+    </MudNavLink>
+</MudNavMenu>
+
+<style>
+    .menu-item:hover {
+        color: var(--mud-palette-primary) !important;
+        font-weight: bold;
+        background-color: var(--mud-palette-action-default-hover) !important;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+    }
+    .menu-item.active {
+        color: white !important;
+        background-color: var(--mud-palette-primary) !important;
+        border-radius: 4px;
+    }
+</style>

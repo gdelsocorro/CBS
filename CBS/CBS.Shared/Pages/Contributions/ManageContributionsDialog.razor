@@ -1,0 +1,124 @@
+@inject IDialogService DialogService
+@inject CBS.Shared.Services.ContributionStateService ContributionService
+@inject CBS.Shared.Services.MemberStateService MemberService
+
+<MudDialog Style="width:820px; max-width:100%;">
+    <DialogContent>
+        <div style="height:62vh; display:flex; flex-direction:column; gap:8px;">
+
+            <!-- Search -->
+            <div class="psd-wrap" style="flex-shrink:0;">
+                <MudTextField Value="@_searchString"
+                              ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                              Immediate="true"
+                              @onfocus="@(() => _focused = true)"
+                              @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                              Placeholder="Search contributions..."
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Margin="Margin.Dense" />
+                @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredFunds.Any())
+                {
+                    <div class="psd-list">
+                        @foreach (var f in _filteredFunds.Take(8))
+                        {
+                            var memberName = MemberService.GetFullName(f.MemberId);
+                            <div class="psd-item" @onmousedown="@(() => _searchString = memberName)">
+                                <MudIcon Icon="@Icons.Material.Filled.FrontHand" Size="Size.Small" Style="color:#90A4AE;" />
+                                <span>@memberName</span>
+                                <span class="psd-item-sub">@f.ContributionType.GetDisplayName() · ₱@f.Amount.ToString("N2")</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Sort -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink:0;">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+                <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:140px;">
+                    <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+                    <MudSelectItem Value="@("date")">Date</MudSelectItem>
+                    <MudSelectItem Value="@("member")">Member</MudSelectItem>
+                    <MudSelectItem Value="@("amount")">Amount</MudSelectItem>
+                </MudSelect>
+                <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                               Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+            </MudStack>
+
+            <!-- Table -->
+            <div style="overflow-y:auto; flex:1;">
+                <MudTable Items="_sortedFunds" Hover="true" Bordered="true" Striped="true"
+                          RowsPerPage="25" Style="min-width:100%;">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Member</MudTh>
+                        <MudTh>Date</MudTh>
+                        <MudTh>Amount</MudTh>
+                        <MudTh>Fund Type</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Id</MudTd>
+                        <MudTd>@MemberService.GetFullName(context.MemberId)</MudTd>
+                        <MudTd>@context.ContributionDate.ToShortDateString()</MudTd>
+                        <MudTd>@context.Amount.ToString("C")</MudTd>
+                        <MudTd>@context.ContributionType.GetDisplayName()</MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                       OnClick="@(() => OpenEditContributionDialog(context))">Edit</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => ContributionService.Remove(context))">Delete</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50}" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _searchString = string.Empty;
+    private bool   _focused;
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<CBS.Domain.Models.Fund> _filteredFunds =>
+        ContributionService.Contributions.Where(f =>
+            string.IsNullOrWhiteSpace(_searchString)
+            || MemberService.GetFullName(f.MemberId).Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+            || f.ContributionDate.ToShortDateString().Contains(_searchString)
+            || f.Amount.ToString().Contains(_searchString)
+            || f.ContributionType.GetDisplayName().Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+        );
+
+    private IEnumerable<CBS.Domain.Models.Fund> _sortedFunds => (_sortBy, _sortDesc) switch
+    {
+        ("date",   true)   => _filteredFunds.OrderByDescending(f => f.ContributionDate),
+        ("date",   false)  => _filteredFunds.OrderBy(f => f.ContributionDate),
+        ("member", true)   => _filteredFunds.OrderByDescending(f => MemberService.GetFullName(f.MemberId)),
+        ("member", false)  => _filteredFunds.OrderBy(f => MemberService.GetFullName(f.MemberId)),
+        ("amount", true)   => _filteredFunds.OrderByDescending(f => f.Amount),
+        ("amount", false)  => _filteredFunds.OrderBy(f => f.Amount),
+        (_,        true)   => _filteredFunds.OrderByDescending(f => f.Id),
+        _                  => _filteredFunds.OrderBy(f => f.Id),
+    };
+
+    private async Task OpenEditContributionDialog(CBS.Domain.Models.Fund fund)
+    {
+        var parameters = new DialogParameters { ["Fund"] = fund };
+        var dialog = await DialogService.ShowAsync<EditContributionDialog>("Edit Contribution", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled) ContributionService.Update(fund);
+    }
+
+    void Close() => MudDialog.Cancel();
+}

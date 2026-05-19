@@ -1,0 +1,193 @@
+@page "/members"
+@using MudBlazor
+@using CBS.Domain.Models
+@using CBS.Domain.Enums
+@using CBS.Shared.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject MemberStateService MemberService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Members</MudText>
+
+    <!-- Search Bar with suggestions -->
+    <div class="psd-wrap">
+        <MudTextField Value="@_searchString"
+                      ValueChanged="@((string v) => _searchString = v ?? string.Empty)"
+                      Immediate="true"
+                      @onfocus="@(() => _focused = true)"
+                      @onblur="@(async () => { await Task.Delay(160); _focused = false; StateHasChanged(); })"
+                      Placeholder="Search by name or ID..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mt-4 mb-4" />
+        @if (_focused && !string.IsNullOrEmpty(_searchString) && _filteredMembers.Any())
+        {
+            <div class="psd-list">
+                @foreach (var m in _filteredMembers.Take(8))
+                {
+                    var label = $"{m.FirstName} {m.LastName}";
+                    <div class="psd-item" @onmousedown="@(() => _searchString = label)">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:#90A4AE;" />
+                        <span>@label</span>
+                        <span class="psd-item-sub">@m.Area · @m.Email</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Filters -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudSelect T="string" Label="Filter by Area" @bind-Value="_areaFilter" Dense="true" Style="min-width:160px;">
+            <MudSelectItem Value="@("All")">All Areas</MudSelectItem>
+            @foreach (var area in Enum.GetValues<Areas>())
+            {
+                <MudSelectItem Value="@area.ToString()">@area.ToString()</MudSelectItem>
+            }
+        </MudSelect>
+    </MudStack>
+
+    <!-- Sort -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Sort:</MudText>
+        <MudSelect T="string" @bind-Value="_sortBy" Dense="true" Margin="Margin.Dense" Style="min-width:150px;">
+            <MudSelectItem Value="@("id")">Latest Added</MudSelectItem>
+            <MudSelectItem Value="@("name")">Name</MudSelectItem>
+            <MudSelectItem Value="@("area")">Area</MudSelectItem>
+        </MudSelect>
+        <MudIconButton Icon="@(_sortDesc ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                       Size="Size.Small" OnClick="@(() => _sortDesc = !_sortDesc)" />
+    </MudStack>
+
+    <!-- Action Buttons -->
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddMemberDialog">Add Member</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="OpenManageMembersDialog">Manage Members</MudButton>
+    </MudStack>
+
+    <!-- Members Table -->
+    <MudTable Items="_filteredMembers" Hover="true" Bordered="true" Striped="true"
+              RowsPerPage="50">
+        <HeaderContent>
+            <MudTh>ID</MudTh>
+            <MudTh>Full Name</MudTh>
+            <MudTh>Area</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="ID">@context.Id</MudTd>
+            <MudTd DataLabel="Full Name">@context.FirstName @context.LastName</MudTd>
+            <MudTd DataLabel="Area">@context.Area</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => OpenEditMemberDialog(context))">Edit</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[]{25, 50, 100}" />
+        </PagerContent>
+    </MudTable>
+
+    <!-- Export & Upload -->
+    <MudStack Row="true" Class="mt-4" Justify="Justify.FlexEnd" Spacing="2">
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">Export CSV</MudButton>
+        <InputFile id="memberCsvUpload" OnChange="ImportCsv" accept=".csv" style="display:none;" />
+        <MudButton HtmlTag="label" for="memberCsvUpload" Variant="Variant.Outlined" Color="Color.Info"
+                   StartIcon="@Icons.Material.Filled.Upload">Upload CSV</MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Inject] IDialogService DialogService { get; set; } = default!;
+    private string _searchString = string.Empty;
+    private bool _focused;
+    private string _areaFilter = "All";
+
+    private string _sortBy   = "id";
+    private bool   _sortDesc = true;
+
+    private IEnumerable<Member> _filteredMembers => SortMembers(
+        MemberService.Members.Where(m =>
+            m.IsActive &&
+            (string.IsNullOrWhiteSpace(_searchString)
+                || m.Id.ToString().Contains(_searchString)
+                || m.FirstName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+                || m.LastName.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) &&
+            (_areaFilter == "All" || m.Area.ToString() == _areaFilter)));
+
+    private IEnumerable<Member> SortMembers(IEnumerable<Member> src) => (_sortBy, _sortDesc) switch
+    {
+        ("name", true)  => src.OrderByDescending(m => m.FirstName).ThenByDescending(m => m.LastName),
+        ("name", false) => src.OrderBy(m => m.FirstName).ThenBy(m => m.LastName),
+        ("area", true)  => src.OrderByDescending(m => m.Area),
+        ("area", false) => src.OrderBy(m => m.Area),
+        (_,      true)  => src.OrderByDescending(m => m.Id),
+        _               => src.OrderBy(m => m.Id),
+    };
+
+    private async Task ExportCsv()
+    {
+        var csv = CsvHelper.Build(
+            new[] { "Id", "FirstName", "LastName", "Email", "Area" },
+            _filteredMembers.Select(m => new[]
+            {
+                m.Id.ToString(), m.FirstName, m.LastName,
+                m.Email, m.Area.ToString()
+            }));
+        await JS.InvokeVoidAsync("cbsDownloadCsv", $"members_{DateTime.Today:yyyyMMdd}.csv", csv);
+    }
+
+    private async Task ImportCsv(InputFileChangeEventArgs e)
+    {
+        using var reader = new System.IO.StreamReader(e.File.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024));
+        var content = await reader.ReadToEndAsync();
+        var rows = CsvHelper.Parse(content);
+        int added = 0;
+        foreach (var row in rows)
+        {
+            if (!row.TryGetValue("FirstName", out var fn) || string.IsNullOrWhiteSpace(fn)) continue;
+            row.TryGetValue("LastName", out var ln);
+            row.TryGetValue("Email",    out var email);
+            row.TryGetValue("Area",     out var areaStr);
+            var area = Enum.TryParse<Areas>(areaStr, true, out var a) ? a : Areas.Downtown;
+            MemberService.Add(new Member
+            {
+                FirstName = fn.Trim(),
+                LastName  = ln?.Trim() ?? "",
+                Email     = email?.Trim() ?? "",
+                Area      = area,
+                IsActive  = true
+            });
+            added++;
+        }
+        Snackbar.Add($"Imported {added} member{(added == 1 ? "" : "s")}.", added > 0 ? Severity.Success : Severity.Warning);
+    }
+
+    private static readonly DialogOptions _addOpts = new() { MaxWidth = MaxWidth.Small,  FullWidth = true, CloseButton = true };
+    private static readonly DialogOptions _mngOpts = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    private async Task OpenAddMemberDialog()
+    {
+        var dialog = await DialogService.ShowAsync<AddMemberDialog>("Add Member", _addOpts);
+        var result = await dialog.Result;
+        if (!result.Canceled && result.Data is Member member)
+            MemberService.Add(member);
+    }
+
+    private async Task OpenManageMembersDialog()
+    {
+        await DialogService.ShowAsync<ManageMembersDialog>("Manage Members", _mngOpts);
+    }
+
+    private async Task OpenEditMemberDialog(Member member)
+    {
+        var parameters = new DialogParameters { ["Member"] = member };
+        var dialog = await DialogService.ShowAsync<EditMemberDialog>("Edit Member", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled) MemberService.Update(member);
+    }
+}
